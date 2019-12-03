@@ -1,19 +1,40 @@
 import torch
 from torch.utils.data import Dataset
+from enum import Enum
+
+class Split(Enum):
+    TRAIN = 0
+    TEST = 2
+    USE_ALL = 3
+    
 
 class PoiDataset(Dataset):
     
-    def __init__(self, users, locs, seq_length):
+    def __init__(self, users, locs, seq_length, split):
         self.users = users
         self.locs = locs
         self.labels = []
         self.sequences = []
         self.sequences_labels = []
         self.sequences_count = []
+        
         # align labels to locations
         for i, loc in enumerate(locs):
             self.locs[i] = loc[:-1]
             self.labels.append(loc[1:])
+        
+        # split to training / test phase:
+        for i, (loc, label) in enumerate(zip(self.locs, self.labels)):
+            train_thr = int(len(loc) * 0.8)
+            if (split == Split.TRAIN):
+                self.locs[i] = loc[:train_thr]
+                self.labels[i] = label[:train_thr]
+            if (split == Split.TEST):
+                self.locs[i] = loc[train_thr:]
+                self.labels[i] = label[train_thr:]
+            if (split == Split.USE_ALL):
+                pass # do nothing
+            
         # split location and labels to sequences:
         self.max_seq_count = 0
         self.min_seq_count = 10000000
@@ -62,8 +83,8 @@ class GowallaLoader():
         self.users = []
         self.locs = []
     
-    def poi_dataset(self, seq_length):
-        dataset = PoiDataset(self.users, self.locs, seq_length) # crop latest in time
+    def poi_dataset(self, seq_length, split):
+        dataset = PoiDataset(self.users, self.locs, seq_length, split) # crop latest in time
         return dataset
     
     def locations(self):

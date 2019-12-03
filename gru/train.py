@@ -3,53 +3,130 @@ from torch import nn
 from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
+import argparse
 
 from network import RNN
-from dataloader import GowallaLoader
+from dataloader import GowallaLoader, Split
 from torch.utils.data import DataLoader
+
+### command line parameters ###
+parser = argparse.ArgumentParser()
+parser.add_argument('--cpu', default=True, const=True, nargs='?', type=bool, help='use cpu')
+parser.add_argument('--gpu', default=2, type=int, help='the gpu to use')
+parser.add_argument('--users', default=10, type=int, help='users to process')
+args = parser.parse_args()
 
 ###### parameters ######
 epochs = 10000
 lr = 0.01
 hidden_size = 7
-#batch_size = 10
 seq_length = 10
+user_count = args.users
 ########################
 
-gowalla = GowallaLoader(10, 101)
-gowalla.load('../../dataset/small-10000.txt')
-dataset = gowalla.poi_dataset(seq_length)
-dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
+### CUDA Setup ###
+device = torch.device('cpu') if args.cpu else torch.device('cuda', args.gpu)
+print('use', device)
 
-model = RNN(gowalla.locations(), hidden_size)
+gowalla = GowallaLoader(user_count, 101)
+#gowalla.load('../../dataset/small-10000.txt')
+gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
+dataset = gowalla.poi_dataset(seq_length, Split.TRAIN)
+dataset_test = gowalla.poi_dataset(seq_length, Split.TEST)
+dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
+dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
+
+model = RNN(gowalla.locations(), hidden_size).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr = lr)
 criterion = nn.MSELoss()
 
+def evaluate(dataloader):
+    h = torch.zeros(1, user_count, hidden_size).to(device)
+    
+    with torch.no_grad():        
+        iter_cnt = 0
+        recall1 = 0
+        recall5 = 0
+        recall10 = 0
+        average_precision = 0.
+        
+        reset_count = torch.zeros(user_count)        
+        
+        for i, (x, y, reset_h) in enumerate(dataloader):
+            for j, reset in enumerate(reset_h):
+                if reset:
+                    reset_count[j] += 1
+            
+            ####
+            #### Attention: the modulo stuff lets us evaluate certain things much more often!!
+            ####
+            
+            # squeeze for reasons of "loader-batch-size-is-1"
+            x = x.squeeze().to(device)
+            y = y.squeeze()
+        
+            out, h = model(x, h)
+        
+            # reshape
+            out = out.view(-1, hidden_size)
+            out_t = out.transpose(0, 1)
+            y = y.contiguous().view(-1)
+            Q = model.encoder.weight
+            o = torch.matmul(Q, out_t).cpu().detach().numpy()
+            rank = np.argsort(-1*o, axis=0)
+            
+            for i in range(len(y)):
+                user = i // seq_length
+                if (reset_count[user] > 1):
+                    continue
+                
+                r = torch.tensor(rank[:, i])
+                t = y[i]
+                
+                iter_cnt += 1
+                recall1 += t in r[:1]
+                recall5 += t in r[:5]
+                recall10 += t in r[:10]
+                idx_target = np.where(r == t)[0][0]
+                precision = 1./(idx_target+1)
+                average_precision += precision
+            
+        print('recall@1:', recall1/iter_cnt)
+        print('recall@5:', recall5/iter_cnt)
+        print('recall@10:', recall10/iter_cnt)
+        print('MAP', average_precision/iter_cnt)
+        print('predictions:', iter_cnt)
+            
+
 def sample(idx, steps):
-    h = torch.zeros(1, 1, hidden_size)
+   
+    with torch.no_grad(): 
+        h = torch.zeros(1, 1, hidden_size).to(device)
+        x, y, _ = dataset_test.__getitem__(idx)
+        x = x[:, 0].to(device)
+        y = y[:, 0].to(device)
+        
+        offset = 5
+        test_input = x[:offset].view(offset, 1)
     
-    x, y, _ = dataset.__getitem__(idx)
-    x = x[:, 0]
-    y = y[:, 0]
-    
-    offset = 5
-    test_input = x[:offset].view(offset, 1)
+        for i in range(steps):
+            y_ts, h = model(test_input, h)
+            y_last = y_ts[-1].transpose(0,1) # latest
+            
+            probs = torch.matmul(model.encoder.weight, y_last).cpu().detach().numpy()
+            rank = np.argsort(np.squeeze(-probs))        
+            
+            print('truth', y[offset+i].item(), 'idx-target', np.where(rank == y[offset+i].item())[0][0] + 1, 'prediction', rank[:5])
+            
+            test_input = y[offset+i].view(1, 1)
 
-    for i in range(steps):
-        y_ts, h = model(test_input, h)
-        y_last = y_ts[-1].transpose(0,1) # latest
-        
-        probs = torch.matmul(model.encoder.weight, y_last).detach().numpy()
-        rank = np.argsort(np.squeeze(-probs))        
-        
-        print('truth', y[offset+i].item(), 'idx-target', np.where(rank == y[offset+i].item())[0][0] + 1, 'prediction', rank[:5])
-        
-        test_input = y[offset+i].view(1, 1)
-
+# try before train
+evaluate(dataloader)
 sample(0, 5)
 
+# train!
 for e in range(epochs):
-    h = torch.zeros(1, 10, hidden_size)
+    h = torch.zeros(1, user_count, hidden_size).to(device)
     
     for i, (x, y, reset_h) in enumerate(dataloader):
         for j, reset in enumerate(reset_h):
@@ -61,8 +138,8 @@ for e in range(epochs):
         #x = x.transpose(1, 0).contiguous()
         #y = y.transpose(1, 0).contiguous()
         #x = x.view(100, batch_size)
-        x = x.squeeze()
-        y = y.squeeze()
+        x = x.squeeze().to(device)
+        y = y.squeeze().to(device)
         
         optimizer.zero_grad() # zero out gradients 
         
@@ -93,6 +170,10 @@ for e in range(epochs):
         print(f'Loss: {latest_loss}')
     if (e+1) % 3 == 0:
         sample(0, 5)
+        print('~~~ Training Evaluation ~~~')
+        evaluate(dataloader)
+        print('~~~ Test Set Evaluation ~~~')
+        evaluate(dataloader_test)
 
 
 def visualize_embedding(embedding):
