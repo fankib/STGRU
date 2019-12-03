@@ -11,8 +11,7 @@ from torch.utils.data import DataLoader
 
 ### command line parameters ###
 parser = argparse.ArgumentParser()
-parser.add_argument('--cpu', default=True, const=True, nargs='?', type=bool, help='use cpu')
-parser.add_argument('--gpu', default=2, type=int, help='the gpu to use')
+parser.add_argument('--gpu', default=-1, type=int, help='the gpu to use')
 parser.add_argument('--users', default=10, type=int, help='users to process')
 args = parser.parse_args()
 
@@ -25,7 +24,7 @@ user_count = args.users
 ########################
 
 ### CUDA Setup ###
-device = torch.device('cpu') if args.cpu else torch.device('cuda', args.gpu)
+device = torch.device('cpu') if args.gpu == -1 else torch.device('cuda', args.gpu)
 print('use', device)
 
 gowalla = GowallaLoader(user_count, 101)
