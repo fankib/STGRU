@@ -13,13 +13,15 @@ from torch.utils.data import DataLoader
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', default=-1, type=int, help='the gpu to use')
 parser.add_argument('--users', default=10, type=int, help='users to process')
+parser.add_arguemtn('--dims', default=10, type=int, help='hidden dimensions to use')
+parser.add_arguemtn('--seq_length', default=10, type=int, help='seq-length to process in one pass')
 args = parser.parse_args()
 
 ###### parameters ######
 epochs = 10000
 lr = 0.01
-hidden_size = 7
-seq_length = 10
+hidden_size = args.dims
+seq_length = args.seq_length
 user_count = args.users
 ########################
 
@@ -167,7 +169,7 @@ for e in range(epochs):
     if (e+1) % 1 == 0:
         print(f'Epoch: {e+1}/{epochs}')
         print(f'Loss: {latest_loss}')
-    if (e+1) % 3 == 0:
+    if (e+1) % 5 == 0:
         sample(0, 5)
         print('~~~ Training Evaluation ~~~')
         evaluate(dataloader)
