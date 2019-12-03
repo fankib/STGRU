@@ -13,8 +13,8 @@ from torch.utils.data import DataLoader
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', default=-1, type=int, help='the gpu to use')
 parser.add_argument('--users', default=10, type=int, help='users to process')
-parser.add_arguemtn('--dims', default=10, type=int, help='hidden dimensions to use')
-parser.add_arguemtn('--seq_length', default=10, type=int, help='seq-length to process in one pass')
+parser.add_argument('--dims', default=10, type=int, help='hidden dimensions to use')
+parser.add_arguemnt('--seq_length', default=10, type=int, help='seq-length to process in one pass')
 args = parser.parse_args()
 
 ###### parameters ######
