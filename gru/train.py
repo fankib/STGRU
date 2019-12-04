@@ -15,7 +15,7 @@ parser.add_argument('--gpu', default=-1, type=int, help='the gpu to use')
 parser.add_argument('--users', default=10, type=int, help='users to process')
 parser.add_argument('--dims', default=10, type=int, help='hidden dimensions to use')
 parser.add_argument('--seq_length', default=10, type=int, help='seq-length to process in one pass')
-parser.add_arguemnt('--min-checkins', default=100, type=int, help='amount of checkins required')
+parser.add_argument('--min-checkins', default=100, type=int, help='amount of checkins required')
 parser.add_argument('--validate-on-latest', default=False, const=True, nargs='?', type=bool, help='use only latest sequence sample to validate')
 args = parser.parse_args()
 
