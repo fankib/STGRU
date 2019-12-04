@@ -127,7 +127,7 @@ def sample(idx, steps):
             test_input = y[offset+i].view(1, 1)
 
 # try before train
-evaluate(dataloader)
+#evaluate(dataloader)
 sample(0, 5)
 
 # train!
@@ -176,8 +176,8 @@ for e in range(epochs):
         print(f'Loss: {latest_loss}')
     if (e+1) % 5 == 0:
         sample(0, 5)
-        print('~~~ Training Evaluation ~~~')
-        evaluate(dataloader)
+        #print('~~~ Training Evaluation ~~~')
+        #evaluate(dataloader)
         print('~~~ Test Set Evaluation ~~~')
         evaluate(dataloader_test)
 
