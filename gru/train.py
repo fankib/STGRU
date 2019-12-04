@@ -81,6 +81,9 @@ def evaluate(dataloader):
                 if (reset_count[user] > 1):
                     continue
                 
+                if (i+1) % seq_length != 0:
+                    continue
+                
                 r = torch.tensor(rank[:, i])
                 t = y[i]
                 
