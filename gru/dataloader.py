@@ -32,8 +32,7 @@ class PoiDataset(Dataset):
         # collect available locations per user
         for i, loc in enumerate(self.locs):
             pss = []
-            ls = []            
-            print('loc', loc)
+            ls = []
             for j, l in enumerate(loc):
                 if not l in ls:
                     ls.append(l)
