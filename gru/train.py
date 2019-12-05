@@ -33,8 +33,8 @@ device = torch.device('cpu') if args.gpu == -1 else torch.device('cuda', args.gp
 print('use', device)
 
 gowalla = GowallaLoader(user_count, args.min_checkins)
-gowalla.load('../../dataset/small-10000.txt')
-#gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
+#gowalla.load('../../dataset/small-10000.txt')
+gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
 dataset = gowalla.poi_dataset(seq_length, Split.TRAIN)
 dataset_test = gowalla.poi_dataset(seq_length, Split.TEST)
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
