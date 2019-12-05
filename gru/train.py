@@ -17,6 +17,7 @@ parser.add_argument('--dims', default=10, type=int, help='hidden dimensions to u
 parser.add_argument('--seq_length', default=10, type=int, help='seq-length to process in one pass')
 parser.add_argument('--min-checkins', default=100, type=int, help='amount of checkins required')
 parser.add_argument('--validate-on-latest', default=False, const=True, nargs='?', type=bool, help='use only latest sequence sample to validate')
+parser.add_argument('--validate-epoch', default=5, type=int, help='run validation after this amount of epochs')
 args = parser.parse_args()
 
 ###### parameters ######
@@ -174,7 +175,7 @@ for e in range(epochs):
     if (e+1) % 1 == 0:
         print(f'Epoch: {e+1}/{epochs}')
         print(f'Loss: {latest_loss}')
-    if (e+1) % 5 == 0:
+    if (e+1) % args.validate_epoch == 0:
         sample(0, 5)
         #print('~~~ Training Evaluation ~~~')
         #evaluate(dataloader)
