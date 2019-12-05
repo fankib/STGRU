@@ -31,15 +31,16 @@ class PoiDataset(Dataset):
         
         # collect available locations per user
         for i, loc in enumerate(self.locs):
-            ps = []
+            pss = []
             ls = []            
             for j, l in enumerate(loc):
                 if not l in ls:
                     ls.append(l)
                     p = torch.zeros(loc_count).float()
                     p[l] = 1
-                    ps.append(p)
-            self.Ps.append(torch.stack(ps, dim=0))
+                    pss.append(p)
+            print('user', i, 'has ', len(pss), 'disting locations')
+            self.Ps.append(torch.stack(pss, dim=0))
         
         # split to training / test phase:
         for i, (loc, label) in enumerate(zip(self.locs, self.labels)):
