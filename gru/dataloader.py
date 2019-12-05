@@ -10,18 +10,36 @@ class Split(Enum):
 
 class PoiDataset(Dataset):
     
-    def __init__(self, users, locs, seq_length, split):
+    def __init__(self, users, locs, seq_length, split, loc_count):
         self.users = users
         self.locs = locs
         self.labels = []
         self.sequences = []
         self.sequences_labels = []
         self.sequences_count = []
+        self.Ps = []
+        self.Qs = torch.zeros(loc_count, 1)
         
         # align labels to locations
         for i, loc in enumerate(locs):
             self.locs[i] = loc[:-1]
             self.labels.append(loc[1:])
+            
+        # collect locations:
+        for i in range(loc_count):
+            self.Qs[i, 0] = i        
+        
+        # collect available locations per user
+        for i, loc in enumerate(self.locs):
+            ps = []
+            ls = []            
+            for j, l in enumerate(loc):
+                if not l in ls:
+                    ls.append(l)
+                    p = torch.zeros(loc_count).float()
+                    p[l] = 1
+                    ps.append(p)
+            self.Ps.append(torch.stack(ps, dim=0))
         
         # split to training / test phase:
         for i, (loc, label) in enumerate(zip(self.locs, self.labels)):
@@ -67,7 +85,7 @@ class PoiDataset(Dataset):
             reset_h.append(j == 0)
             seqs.append(torch.tensor(self.sequences[i][j]))
             lbls.append(torch.tensor(self.sequences_labels[i][j]))
-        return torch.stack(seqs, dim=1), torch.stack(lbls, dim=1), reset_h
+        return torch.stack(seqs, dim=1), torch.stack(lbls, dim=1), reset_h, self.Ps
         #return torch.tensor(self.locs[idx]), torch.tensor(self.labels[idx])
 
 
@@ -84,7 +102,7 @@ class GowallaLoader():
         self.locs = []
     
     def poi_dataset(self, seq_length, split):
-        dataset = PoiDataset(self.users, self.locs, seq_length, split) # crop latest in time
+        dataset = PoiDataset(self.users, self.locs, seq_length, split, len(self.poi2id)) # crop latest in time
         return dataset
     
     def locations(self):

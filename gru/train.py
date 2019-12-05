@@ -12,12 +12,12 @@ from torch.utils.data import DataLoader
 ### command line parameters ###
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', default=-1, type=int, help='the gpu to use')
-parser.add_argument('--users', default=10, type=int, help='users to process')
-parser.add_argument('--dims', default=10, type=int, help='hidden dimensions to use')
+parser.add_argument('--users', default=5, type=int, help='users to process')
+parser.add_argument('--dims', default=7, type=int, help='hidden dimensions to use')
 parser.add_argument('--seq_length', default=10, type=int, help='seq-length to process in one pass')
 parser.add_argument('--min-checkins', default=100, type=int, help='amount of checkins required')
 parser.add_argument('--validate-on-latest', default=False, const=True, nargs='?', type=bool, help='use only latest sequence sample to validate')
-parser.add_argument('--validate-epoch', default=5, type=int, help='run validation after this amount of epochs')
+parser.add_argument('--validate-epoch', default=2, type=int, help='run validation after this amount of epochs')
 args = parser.parse_args()
 
 ###### parameters ######
@@ -33,8 +33,8 @@ device = torch.device('cpu') if args.gpu == -1 else torch.device('cuda', args.gp
 print('use', device)
 
 gowalla = GowallaLoader(user_count, args.min_checkins)
-#gowalla.load('../../dataset/small-10000.txt')
-gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
+gowalla.load('../../dataset/small-10000.txt')
+#gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
 dataset = gowalla.poi_dataset(seq_length, Split.TRAIN)
 dataset_test = gowalla.poi_dataset(seq_length, Split.TEST)
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
@@ -56,7 +56,7 @@ def evaluate(dataloader):
         
         reset_count = torch.zeros(user_count)        
         
-        for i, (x, y, reset_h) in enumerate(dataloader):
+        for i, (x, y, reset_h, Ps) in enumerate(dataloader):
             for j, reset in enumerate(reset_h):
                 if reset:
                     reset_count[j] += 1
@@ -70,33 +70,42 @@ def evaluate(dataloader):
             y = y.squeeze()
         
             out, h = model(x, h)
-        
-            # reshape
-            out = out.view(-1, hidden_size)
-            out_t = out.transpose(0, 1)
-            y = y.contiguous().view(-1)
-            Q = model.encoder.weight
-            o = torch.matmul(Q, out_t).cpu().detach().numpy()
-            rank = np.argsort(-1*o, axis=0)
             
-            for i in range(len(y)):
-                user = i // seq_length
-                if (reset_count[user] > 1):
-                    continue
+            out_t = out.transpose(0, 1)
+            Q = model.encoder.weight
+            
+            for j in range(args.users):
+                out_j = out_t[j].transpose(0,1)
+                PQ = torch.matmul(Ps[j], Q)
+                PQs = torch.matmul(Ps[j], dataset.Qs).squeeze().long().numpy()
+
+                o = torch.matmul(PQ, out_j).cpu().detach()
+                o = o.transpose(1,2)
+                o = o.contiguous().view(10, -1)
+                rank = np.argsort(-1*o.numpy(), axis=1)
                 
-                if args.validate_on_latest and (i+1) % seq_length != 0:
-                    continue
+                y_j = y[:, j]
                 
-                r = torch.tensor(rank[:, i])
-                t = y[i]
-                
-                iter_cnt += 1
-                recall1 += t in r[:1]
-                recall5 += t in r[:5]
-                recall10 += t in r[:10]
-                idx_target = np.where(r == t)[0][0]
-                precision = 1./(idx_target+1)
-                average_precision += precision
+                for k in range(len(y_j)):
+                    #user = i // seq_length
+                    if (reset_count[j] > 1):
+                        continue
+                    
+                    if args.validate_on_latest and (i+1) % seq_length != 0:
+                        continue
+                    
+                    #r = torch.tensor(rank[:, i])
+                    r = rank[k, :]
+                    r = torch.tensor(PQs[r]) # transform to given locations
+                    t = y_j[k]
+                    
+                    iter_cnt += 1
+                    recall1 += t in r[:1]
+                    recall5 += t in r[:5]
+                    recall10 += t in r[:10]
+                    idx_target = np.where(r == t)[0][0]
+                    precision = 1./(idx_target+1)
+                    average_precision += precision
             
         print('recall@1:', recall1/iter_cnt)
         print('recall@5:', recall5/iter_cnt)
@@ -109,7 +118,7 @@ def sample(idx, steps):
    
     with torch.no_grad(): 
         h = torch.zeros(1, 1, hidden_size).to(device)
-        x, y, _ = dataset_test.__getitem__(idx)
+        x, y, _, _ = dataset_test.__getitem__(idx)
         x = x[:, 0].to(device)
         y = y[:, 0].to(device)
         
@@ -128,14 +137,14 @@ def sample(idx, steps):
             test_input = y[offset+i].view(1, 1)
 
 # try before train
-#evaluate(dataloader)
+evaluate(dataloader)
 sample(0, 5)
 
 # train!
 for e in range(epochs):
     h = torch.zeros(1, user_count, hidden_size).to(device)
     
-    for i, (x, y, reset_h) in enumerate(dataloader):
+    for i, (x, y, reset_h, Ps) in enumerate(dataloader):
         for j, reset in enumerate(reset_h):
             if reset:
                 h[0, j] = torch.zeros(hidden_size)
