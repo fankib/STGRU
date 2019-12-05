@@ -54,7 +54,7 @@ def evaluate(dataloader):
         recall10 = 0
         average_precision = 0.
         
-        reset_count = torch.zeros(user_count)        
+        reset_count = torch.zeros(user_count)
         
         for i, (x, y, reset_h) in enumerate(dataloader):
             for j, reset in enumerate(reset_h):
@@ -64,6 +64,9 @@ def evaluate(dataloader):
             ####
             #### Attention: the modulo stuff lets us evaluate certain things much more often!!
             ####
+                
+            Ps = dataset.Ps
+            Qs = dataset.Qs
             
             # squeeze for reasons of "loader-batch-size-is-1"
             x = x.squeeze().to(device)
@@ -73,8 +76,6 @@ def evaluate(dataloader):
             
             out_t = out.transpose(0, 1)
             Q = model.encoder.weight
-            Ps = dataset.Ps
-            Qs = dataset.Qs
             
             for j in range(args.users):
                 out_j = out_t[j].transpose(0,1)
@@ -82,7 +83,7 @@ def evaluate(dataloader):
                 PQs = torch.matmul(Ps[j], Qs).squeeze().long().numpy()
 
                 o = torch.matmul(PQ, out_j).cpu().detach()
-                o = o.transpose(1,2)
+                o = o.transpose(0,1)
                 o = o.contiguous().view(10, -1)
                 rank = np.argsort(-1*o.numpy(), axis=1)
                 
@@ -101,7 +102,7 @@ def evaluate(dataloader):
                     r = torch.tensor(PQs[r]) # transform to given locations
                     t = y_j[k]
                     
-                    if not r in t:
+                    if not t in r:
                         print('we have a problem with user', j, ': t is', t, 'rank is', r)
                     
                     iter_cnt += 1
