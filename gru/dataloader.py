@@ -33,6 +33,7 @@ class PoiDataset(Dataset):
         for i, loc in enumerate(self.locs):
             pss = []
             ls = []            
+            print('loc', loc)
             for j, l in enumerate(loc):
                 if not l in ls:
                     ls.append(l)
