@@ -137,7 +137,7 @@ def sample(idx, steps):
             test_input = y[offset+i].view(1, 1)
 
 # try before train
-evaluate(dataloader)
+#evaluate(dataloader_test)
 sample(0, 5)
 
 # train!
