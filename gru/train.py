@@ -6,7 +6,7 @@ import numpy as np
 import argparse
 
 from network import RNN
-from dataloader import GowallaLoader, Split
+from dataloader import GowallaLoader, Split, Usage
 from torch.utils.data import DataLoader
 
 ### command line parameters ###
@@ -15,7 +15,7 @@ parser.add_argument('--gpu', default=-1, type=int, help='the gpu to use')
 parser.add_argument('--users', default=5, type=int, help='users to process')
 parser.add_argument('--dims', default=7, type=int, help='hidden dimensions to use')
 parser.add_argument('--seq_length', default=10, type=int, help='seq-length to process in one pass')
-parser.add_argument('--min-checkins', default=100, type=int, help='amount of checkins required')
+parser.add_argument('--min-checkins', default=101, type=int, help='amount of checkins required')
 parser.add_argument('--validate-on-latest', default=False, const=True, nargs='?', type=bool, help='use only latest sequence sample to validate')
 parser.add_argument('--validate-epoch', default=2, type=int, help='run validation after this amount of epochs')
 args = parser.parse_args()
@@ -34,9 +34,10 @@ print('use', device)
 
 gowalla = GowallaLoader(user_count, args.min_checkins)
 #gowalla.load('../../dataset/small-10000.txt')
-gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
-dataset = gowalla.poi_dataset(seq_length, Split.TRAIN)
-dataset_test = gowalla.poi_dataset(seq_length, Split.TEST)
+#gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
+gowalla.load('../../dataset/loc-gowalla_totalCheckins_Pcore50_50.txt')
+dataset = gowalla.poi_dataset(seq_length, Split.TRAIN, Usage.MAX_SEQ_LENGTH)
+dataset_test = gowalla.poi_dataset(seq_length, Split.TEST, Usage.MIN_SEQ_LENGTH)
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
 dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
 
@@ -60,10 +61,6 @@ def evaluate(dataloader):
             for j, reset in enumerate(reset_h):
                 if reset:
                     reset_count[j] += 1
-            
-            ####
-            #### Attention: the modulo stuff lets us evaluate certain things much more often!!
-            ####
                 
             Ps = dataset.Ps
             Qs = dataset.Qs
@@ -90,7 +87,6 @@ def evaluate(dataloader):
                 y_j = y[:, j]
                 
                 for k in range(len(y_j)):
-                    #user = i // seq_length
                     if (reset_count[j] > 1):
                         continue
                     

@@ -6,11 +6,15 @@ class Split(Enum):
     TRAIN = 0
     TEST = 2
     USE_ALL = 3
+
+class Usage(Enum):
+    MIN_SEQ_LENGTH = 0
+    MAX_SEQ_LENGTH = 1
     
 
 class PoiDataset(Dataset):
     
-    def __init__(self, users, locs, seq_length, split, loc_count):
+    def __init__(self, users, locs, seq_length, split, usage, loc_count):
         self.users = users
         self.locs = locs
         self.labels = []
@@ -19,6 +23,7 @@ class PoiDataset(Dataset):
         self.sequences_count = []
         self.Ps = []
         self.Qs = torch.zeros(loc_count, 1)
+        self.usage = usage
 
         # collect locations:
         for i in range(loc_count):
@@ -71,11 +76,20 @@ class PoiDataset(Dataset):
             self.sequences_count.append(seq_count)
             self.max_seq_count = max(self.max_seq_count, seq_count)
             self.min_seq_count = min(self.min_seq_count, seq_count)
-        print('load', len(users), 'users with max_seq_count', self.max_seq_count)
+        
+        # statistics
+        if (self.usage == Usage.MIN_SEQ_LENGTH):
+            print('load', len(users), 'users with min_seq_count', self.min_seq_count)
+        if (self.usage == Usage.MAX_SEQ_LENGTH):
+            print('load', len(users), 'users with max_seq_count', self.max_seq_count)
+        
     
     def __len__(self):
-        #return self.min_seq_count
-        return self.max_seq_count
+        if (self.usage == Usage.MIN_SEQ_LENGTH):
+            return self.min_seq_count
+        if (self.usage == Usage.MAX_SEQ_LENGTH):
+            return self.max_seq_count
+        raise Exception('Piiiep')
     
     def __getitem__(self, idx):
         seqs = []
@@ -102,8 +116,8 @@ class GowallaLoader():
         self.users = []
         self.locs = []
     
-    def poi_dataset(self, seq_length, split):
-        dataset = PoiDataset(self.users, self.locs, seq_length, split, len(self.poi2id)) # crop latest in time
+    def poi_dataset(self, seq_length, split, usage):
+        dataset = PoiDataset(self.users, self.locs, seq_length, split, usage, len(self.poi2id)) # crop latest in time
         return dataset
     
     def locations(self):
