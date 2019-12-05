@@ -76,8 +76,13 @@ def evaluate(dataloader):
             
             for j in range(args.users):
                 out_j = out_t[j].transpose(0,1)
-                PQ = torch.matmul(Ps[j].to(device), Q)
-                PQs = torch.matmul(Ps[j], Qs).squeeze().long().numpy()
+                
+                # with filtering on seen locations:
+                #PQ = torch.matmul(Ps[j].to(device), Q)
+                #PQs = torch.matmul(Ps[j], Qs).squeeze().long().numpy()
+                
+                # w/o filtering on seen locations:
+                PQ = Q
 
                 o = torch.matmul(PQ, out_j).cpu().detach()
                 o = o.transpose(0,1)
@@ -97,7 +102,10 @@ def evaluate(dataloader):
                         continue # skip user with single location.
                     
                     r = rank[k, :]
-                    r = torch.tensor(PQs[r]) # transform to given locations
+                    # with filtering on seen locations:
+                    #r = torch.tensor(PQs[r]) # transform to given locations
+                    # w/o filtering on seen locations:
+                    r = torch.tensor(r)
                     t = y_j[k]
                     
                     if not t in r:
@@ -122,23 +130,32 @@ def sample(idx, steps):
    
     with torch.no_grad(): 
         h = torch.zeros(1, 1, hidden_size).to(device)
-        x, y, _ = dataset_test.__getitem__(idx)
-        x = x[:, 0].to(device)
-        y = y[:, 0].to(device)
         
-        offset = 5
-        test_input = x[:offset].view(offset, 1)
+        resets = 0
+        
+        for i, (x, y, reset_h) in enumerate(dataloader_test):
+            if reset_h[0]:
+                resets += 1
+            
+            if resets > 1:
+                return
+                           
+            x = x.squeeze()[:, 0].to(device)
+            y = y.squeeze()[:, 0].to(device)
+        
+            offset = 1
+            test_input = x[:offset].view(offset, 1)
     
-        for i in range(steps):
-            y_ts, h = model(test_input, h)
-            y_last = y_ts[-1].transpose(0,1) # latest
+            for i in range(10):
+                y_ts, h = model(test_input, h)
+                y_last = y_ts[-1].transpose(0,1) # latest
             
-            probs = torch.matmul(model.encoder.weight, y_last).cpu().detach().numpy()
-            rank = np.argsort(np.squeeze(-probs))        
+                probs = torch.matmul(model.encoder.weight, y_last).cpu().detach().numpy()
+                rank = np.argsort(np.squeeze(-probs))        
             
-            print('truth', y[offset+i].item(), 'idx-target', np.where(rank == y[offset+i].item())[0][0] + 1, 'prediction', rank[:5])
+                print('in', test_input.item(), 'expected', y[offset+i-1].item(), ': idx-target', np.where(rank == y[offset+i-1].item())[0][0] + 1, 'prediction', rank[:5])
             
-            test_input = y[offset+i].view(1, 1)
+                test_input = y[offset+i-1].view(1, 1)
 
 # try before train
 evaluate(dataloader_test)
