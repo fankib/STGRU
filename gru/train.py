@@ -86,14 +86,16 @@ def evaluate(dataloader):
                 
                 y_j = y[:, j]
                 
-                for k in range(len(y_j)):
+                for k in range(len(y_j)):                    
                     if (reset_count[j] > 1):
                         continue
                     
                     if args.validate_on_latest and (i+1) % seq_length != 0:
                         continue
                     
-                    #r = torch.tensor(rank[:, i])
+                    if Ps[j].size()[0] == 1:
+                        continue # skip user with single location.
+                    
                     r = rank[k, :]
                     r = torch.tensor(PQs[r]) # transform to given locations
                     t = y_j[k]
