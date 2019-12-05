@@ -19,12 +19,7 @@ class PoiDataset(Dataset):
         self.sequences_count = []
         self.Ps = []
         self.Qs = torch.zeros(loc_count, 1)
-        
-        # align labels to locations
-        for i, loc in enumerate(locs):
-            self.locs[i] = loc[:-1]
-            self.labels.append(loc[1:])
-            
+
         # collect locations:
         for i in range(loc_count):
             self.Qs[i, 0] = i        
@@ -39,8 +34,13 @@ class PoiDataset(Dataset):
                     p = torch.zeros(loc_count).float()
                     p[l] = 1
                     pss.append(p)
-            print('user', i, 'has ', len(pss), 'disting locations')
+            print('user', i, 'has ', len(pss), 'distinct locations')
             self.Ps.append(torch.stack(pss, dim=0))
+        
+        # align labels to locations
+        for i, loc in enumerate(locs):
+            self.locs[i] = loc[:-1]
+            self.labels.append(loc[1:])
         
         # split to training / test phase:
         for i, (loc, label) in enumerate(zip(self.locs, self.labels)):
