@@ -86,7 +86,7 @@ class PoiDataset(Dataset):
             reset_h.append(j == 0)
             seqs.append(torch.tensor(self.sequences[i][j]))
             lbls.append(torch.tensor(self.sequences_labels[i][j]))
-        return torch.stack(seqs, dim=1), torch.stack(lbls, dim=1), reset_h, self.Ps
+        return torch.stack(seqs, dim=1), torch.stack(lbls, dim=1), reset_h, self.Ps, self.Qs
         #return torch.tensor(self.locs[idx]), torch.tensor(self.labels[idx])
 
 
