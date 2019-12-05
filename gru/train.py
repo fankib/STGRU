@@ -99,6 +99,9 @@ def evaluate(dataloader):
                     r = torch.tensor(PQs[r]) # transform to given locations
                     t = y_j[k]
                     
+                    if not r in t:
+                        print('we have a problem with user', j, ': t is', t, 'rank is', r)
+                    
                     iter_cnt += 1
                     recall1 += t in r[:1]
                     recall5 += t in r[:5]
@@ -137,7 +140,7 @@ def sample(idx, steps):
             test_input = y[offset+i].view(1, 1)
 
 # try before train
-#evaluate(dataloader_test)
+evaluate(dataloader_test)
 sample(0, 5)
 
 # train!
