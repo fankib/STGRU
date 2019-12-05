@@ -56,7 +56,7 @@ def evaluate(dataloader):
         
         reset_count = torch.zeros(user_count)        
         
-        for i, (x, y, reset_h, Ps, Qs) in enumerate(dataloader):
+        for i, (x, y, reset_h) in enumerate(dataloader):
             for j, reset in enumerate(reset_h):
                 if reset:
                     reset_count[j] += 1
@@ -73,6 +73,8 @@ def evaluate(dataloader):
             
             out_t = out.transpose(0, 1)
             Q = model.encoder.weight
+            Ps = dataset.Ps
+            Qs = dataset.Qs
             
             for j in range(args.users):
                 out_j = out_t[j].transpose(0,1)
@@ -121,7 +123,7 @@ def sample(idx, steps):
    
     with torch.no_grad(): 
         h = torch.zeros(1, 1, hidden_size).to(device)
-        x, y, _, _, _ = dataset_test.__getitem__(idx)
+        x, y, _ = dataset_test.__getitem__(idx)
         x = x[:, 0].to(device)
         y = y[:, 0].to(device)
         
@@ -147,7 +149,7 @@ sample(0, 5)
 for e in range(epochs):
     h = torch.zeros(1, user_count, hidden_size).to(device)
     
-    for i, (x, y, reset_h, Ps, Qs) in enumerate(dataloader):
+    for i, (x, y, reset_h) in enumerate(dataloader):
         for j, reset in enumerate(reset_h):
             if reset:
                 h[0, j] = torch.zeros(hidden_size)
