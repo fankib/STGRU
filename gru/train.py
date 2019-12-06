@@ -55,6 +55,11 @@ def evaluate(dataloader):
         recall10 = 0
         average_precision = 0.
         
+        u_iter_cnt = np.zeros(args.users)
+        u_recall1 = np.zeros(args.users)
+        u_recall5 = np.zeros(args.users)
+        u_recall10 = np.zeros(args.users)
+        u_average_precision = np.zeros(args.users)        
         reset_count = torch.zeros(user_count)
         
         for i, (x, y, reset_h) in enumerate(dataloader):
@@ -74,7 +79,7 @@ def evaluate(dataloader):
             out_t = out.transpose(0, 1)
             Q = model.encoder.weight
             
-            for j in range(args.users):
+            for j in range(args.users):                
                 out_j = out_t[j].transpose(0,1)
                 
                 # with filtering on seen locations:
@@ -111,13 +116,26 @@ def evaluate(dataloader):
                     if not t in r:
                         print('we have a problem with user', j, ': t is', t, 'rank is', r)
                     
-                    iter_cnt += 1
-                    recall1 += t in r[:1]
-                    recall5 += t in r[:5]
-                    recall10 += t in r[:10]
+                    #if (j == 1):
+                    #    print('at user 1, t:', t,'r[0]:', r[0])
+                    
+                    u_iter_cnt[j] += 1
+                    u_recall1[j] += t in r[:1]
+                    u_recall5[j] += t in r[:5]
+                    u_recall10[j] += t in r[:10]
                     idx_target = np.where(r == t)[0][0]
                     precision = 1./(idx_target+1)
-                    average_precision += precision
+                    u_average_precision[j] += precision
+                
+        for j in range(args.users):
+            iter_cnt += u_iter_cnt[j]
+            recall1 += u_recall1[j]
+            recall5 += u_recall5[j]
+            recall10 += u_recall10[j]
+            average_precision += u_average_precision[j]
+            #print('Report user', j, 'recall@1', u_recall1[j]/u_iter_cnt[j], 'recall@5', u_recall5[j]/u_iter_cnt[j], 'recall@10', u_recall10[j]/u_iter_cnt[j], 'MAP', u_average_precision[j]/u_iter_cnt[j], sep='\t')
+            print('Report user', j, 'preds:', u_iter_cnt[j], 'recall@1', u_recall1[j]/u_iter_cnt[j], 'MAP', u_average_precision[j]/u_iter_cnt[j], sep='\t')
+            
             
         print('recall@1:', recall1/iter_cnt)
         print('recall@5:', recall5/iter_cnt)
@@ -140,8 +158,8 @@ def sample(idx, steps):
             if resets > 1:
                 return
                            
-            x = x.squeeze()[:, 0].to(device)
-            y = y.squeeze()[:, 0].to(device)
+            x = x.squeeze()[:, idx].to(device)
+            y = y.squeeze()[:, idx].to(device)
         
             offset = 1
             test_input = x[:offset].view(offset, 1)
@@ -159,7 +177,7 @@ def sample(idx, steps):
 
 # try before train
 evaluate(dataloader_test)
-sample(0, 5)
+sample(1, 5)
 
 # train!
 for e in range(epochs):
@@ -206,7 +224,7 @@ for e in range(epochs):
         print(f'Epoch: {e+1}/{epochs}')
         print(f'Loss: {latest_loss}')
     if (e+1) % args.validate_epoch == 0:
-        sample(0, 5)
+        sample(1, 5)
         #print('~~~ Training Evaluation ~~~')
         #evaluate(dataloader)
         print('~~~ Test Set Evaluation ~~~')
