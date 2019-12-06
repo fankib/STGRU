@@ -171,8 +171,7 @@ class GowallaLoader():
     
             if user == prev_user:
                 # insert in front!
-                #user_loc.insert(0, location)
-                user_loc.append(location)
+                user_loc.insert(0, location)
             else:
                 self.users.append(prev_user)
                 self.locs.append(user_loc)
