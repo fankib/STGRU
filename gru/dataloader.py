@@ -82,7 +82,9 @@ class PoiDataset(Dataset):
             print('load', len(users), 'users with min_seq_count', self.min_seq_count)
         if (self.usage == Usage.MAX_SEQ_LENGTH):
             print('load', len(users), 'users with max_seq_count', self.max_seq_count)
-        
+    
+    def sequences_by_user(self, idx):
+        return self.sequences[idx]
     
     def __len__(self):
         if (self.usage == Usage.MIN_SEQ_LENGTH):

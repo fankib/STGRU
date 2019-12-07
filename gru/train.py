@@ -17,7 +17,7 @@ parser.add_argument('--dims', default=7, type=int, help='hidden dimensions to us
 parser.add_argument('--seq_length', default=10, type=int, help='seq-length to process in one pass')
 parser.add_argument('--min-checkins', default=101, type=int, help='amount of checkins required')
 parser.add_argument('--validate-on-latest', default=False, const=True, nargs='?', type=bool, help='use only latest sequence sample to validate')
-parser.add_argument('--validate-epoch', default=2, type=int, help='run validation after this amount of epochs')
+parser.add_argument('--validate-epoch', default=3, type=int, help='run validation after this amount of epochs')
 args = parser.parse_args()
 
 ###### parameters ######
@@ -34,8 +34,8 @@ print('use', device)
 
 gowalla = GowallaLoader(user_count, args.min_checkins)
 #gowalla.load('../../dataset/small-10000.txt')
-#gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
-gowalla.load('../../dataset/loc-gowalla_totalCheckins_Pcore50_50.txt')
+gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
+#gowalla.load('../../dataset/loc-gowalla_totalCheckins_Pcore50_50.txt')
 dataset = gowalla.poi_dataset(seq_length, Split.TRAIN, Usage.MAX_SEQ_LENGTH)
 dataset_test = gowalla.poi_dataset(seq_length, Split.TEST, Usage.MAX_SEQ_LENGTH)
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
@@ -144,7 +144,7 @@ def evaluate(dataloader):
         print('predictions:', iter_cnt)
             
 
-def sample(idx, steps):
+def sample(idx):
    
     with torch.no_grad(): 
         h = torch.zeros(1, 1, hidden_size).to(device)
@@ -152,7 +152,7 @@ def sample(idx, steps):
         resets = 0
         
         for i, (x, y, reset_h) in enumerate(dataloader_test):
-            if reset_h[0]:
+            if reset_h[idx]:
                 resets += 1
             
             if resets > 1:
@@ -175,9 +175,16 @@ def sample(idx, steps):
             
                 test_input = y[offset+i-1].view(1, 1)
 
+# test user idx
+sample_user_id = 2
+train_seqs = dataset.sequences_by_user(sample_user_id)
+test_seqs = dataset_test.sequences_by_user(sample_user_id)
+print('~~~ train ~~~', train_seqs)
+print('~~~ test ~~~', test_seqs)
+
 # try before train
 evaluate(dataloader_test)
-sample(1, 5)
+sample(sample_user_id)
 
 # train!
 for e in range(epochs):
@@ -224,7 +231,7 @@ for e in range(epochs):
         print(f'Epoch: {e+1}/{epochs}')
         print(f'Loss: {latest_loss}')
     if (e+1) % args.validate_epoch == 0:
-        sample(1, 5)
+        sample(sample_user_id)
         #print('~~~ Training Evaluation ~~~')
         #evaluate(dataloader)
         print('~~~ Test Set Evaluation ~~~')
