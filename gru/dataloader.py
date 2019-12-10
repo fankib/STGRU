@@ -14,6 +14,19 @@ class Usage(Enum):
 
 class PoiDataset(Dataset):
     
+    def reset(self):
+        # reset training state:
+        self.next_user_idx = 0 # current user index to add
+        self.active_users = [] # current active users
+        self.active_user_seq = [] # current active users sequences
+        
+        # set active users:
+        for i in range(self.user_length):
+            self.next_user_idx += 1
+            self.active_users.append(i) 
+            self.active_user_seq.append(0)
+        
+    
     def __init__(self, users, locs, seq_length, user_length, split, usage, loc_count):
         self.users = users
         self.locs = locs
@@ -26,10 +39,9 @@ class PoiDataset(Dataset):
         self.usage = usage
         self.user_length = user_length
         self.loc_count = loc_count
-        self.loc_ids_of_user = [] # sets of unique locations per user
-        self.next_user_idx = 0 # current user index to add
-        self.active_users = [] # current active users
-        self.active_user_seq = [] # current active users sequences
+        #self.loc_ids_of_user = [] # sets of unique locations per user
+
+        self.reset()
 
         # collect locations:
         for i in range(loc_count):
@@ -41,12 +53,6 @@ class PoiDataset(Dataset):
         #    for j in self.locs[i]:
         #        locs_of_user.add(j)
         #    self.loc_ids_of_user.append(locs_of_user)
-            
-        # set active users:
-        for i in range(self.user_length):
-            self.next_user_idx += 1
-            self.active_users.append(i) 
-            self.active_user_seq.append(0)
         
         # collect available locations per user
         #for i, loc in enumerate(self.locs):

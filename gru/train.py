@@ -4,6 +4,7 @@ from torch.autograd import Variable
 import torch.nn.functional as F
 import numpy as np
 import argparse
+import time
 
 from network import RNN
 from dataloader import GowallaLoader, Split, Usage
@@ -49,6 +50,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr = lr)
 criterion = nn.MSELoss()
 
 def evaluate(dataloader):
+    dataset_test.reset()
     h = torch.zeros(1, user_length, hidden_size).to(device)
     
     with torch.no_grad():        
@@ -101,7 +103,10 @@ def evaluate(dataloader):
                 o = torch.matmul(PQ, out_j).cpu().detach()
                 o = o.transpose(0,1)
                 o = o.contiguous().view(10, -1)
+                start = time.time()
                 rank = np.argsort(-1*o.numpy(), axis=1)
+                duration = time.time() - start
+                print('argsort for', active_users[j], 'in', duration)
                 
                 y_j = y[:, j]
                 
@@ -158,6 +163,7 @@ def evaluate(dataloader):
 
 def sample(idx):
     assert idx < user_length # does not yet work if we wrap around users!
+    dataset_test.reset()
    
     with torch.no_grad(): 
         h = torch.zeros(1, 1, hidden_size).to(device)
