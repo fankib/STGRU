@@ -81,6 +81,7 @@ class PoiDataset(Dataset):
         # split location and labels to sequences:
         self.max_seq_count = 0
         self.min_seq_count = 10000000
+        self.capacity = 0
         for i, (loc, label) in enumerate(zip(self.locs, self.labels)):
             seq_count = len(loc) // seq_length
             seqs = []
@@ -93,25 +94,27 @@ class PoiDataset(Dataset):
             self.sequences.append(seqs)
             self.sequences_labels.append(seq_lbls)
             self.sequences_count.append(seq_count)
+            self.capacity += seq_count
             self.max_seq_count = max(self.max_seq_count, seq_count)
             self.min_seq_count = min(self.min_seq_count, seq_count)
         
         # statistics
         if (self.usage == Usage.MIN_SEQ_LENGTH):
-            print('load', len(users), 'users with min_seq_count', self.min_seq_count)
+            print('load', len(users), 'users with min_seq_count', self.min_seq_count, 'batches:', self.__len__())
         if (self.usage == Usage.MAX_SEQ_LENGTH):
-            print('load', len(users), 'users with max_seq_count', self.max_seq_count)
+            print('load', len(users), 'users with max_seq_count', self.max_seq_count, 'batches:', self.__len__())
     
     def sequences_by_user(self, idx):
         return self.sequences[idx]
     
     def __len__(self):
-        factor = len(self.users) // self.user_length
-        ##factor += 1
         if (self.usage == Usage.MIN_SEQ_LENGTH):
-            return self.min_seq_count * factor
+            # min times amount_of_user_batches:
+            return self.min_seq_count * (len(self.users) // self.user_length)
         if (self.usage == Usage.MAX_SEQ_LENGTH):
-            return self.max_seq_count * factor
+            # estimated capacity:
+            estimated = self.capacity // self.user_length
+            return max(self.max_seq_count, estimated)
         raise Exception('Piiiep')
     
     def __getitem__(self, idx):
