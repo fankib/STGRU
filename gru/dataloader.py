@@ -36,11 +36,11 @@ class PoiDataset(Dataset):
             self.Qs[i, 0] = i    
             
         # collect unique locations per user:
-        for i in range(len(users)):
-            locs_of_user = set()
-            for j in self.locs[i]:
-                locs_of_user.add(j)
-            self.loc_ids_of_user.append(locs_of_user)
+        #for i in range(len(users)):
+        #    locs_of_user = set()
+        #    for j in self.locs[i]:
+        #        locs_of_user.add(j)
+        #    self.loc_ids_of_user.append(locs_of_user)
             
         # set active users:
         for i in range(self.user_length):
@@ -49,17 +49,17 @@ class PoiDataset(Dataset):
             self.active_user_seq.append(0)
         
         # collect available locations per user
-        for i, loc in enumerate(self.locs):
-            pss = []
-            ls = []
-            for j, l in enumerate(loc):
-                if not l in ls:
-                    ls.append(l)
-                    p = torch.zeros(loc_count).float()
-                    p[l] = 1
-                    pss.append(p)
-            print('user', i, 'has ', len(pss), 'distinct locations')
-            self.Ps.append(torch.stack(pss, dim=0))
+        #for i, loc in enumerate(self.locs):
+        #    pss = []
+        #    ls = []
+        #    for j, l in enumerate(loc):
+        #        if not l in ls:
+        #            ls.append(l)
+        #            p = torch.zeros(loc_count).float()
+        #            p[l] = 1
+        #            pss.append(p)
+        #    print('user', i, 'has ', len(pss), 'distinct locations')
+        #    self.Ps.append(torch.stack(pss, dim=0))
         
         # align labels to locations
         for i, loc in enumerate(locs):

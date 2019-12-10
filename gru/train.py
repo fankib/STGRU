@@ -68,9 +68,10 @@ def evaluate(dataloader):
             for j, reset in enumerate(reset_h):
                 if reset:
                     reset_count[j] += 1
-                
-            Ps = dataset.Ps
-            Qs = dataset.Qs
+            
+            # for user location selections:
+            #Ps = dataset.Ps
+            #Qs = dataset.Qs
             
             # squeeze for reasons of "loader-batch-size-is-1"
             x = x.squeeze().to(device)
@@ -105,8 +106,8 @@ def evaluate(dataloader):
                     if args.validate_on_latest and (i+1) % seq_length != 0:
                         continue
                     
-                    if Ps[j].size()[0] == 1:
-                        continue # skip user with single location.
+                    #if Ps[j].size()[0] == 1:
+                    #    continue # skip user with single location.
                     
                     r = rank[k, :]
                     # with filtering on seen locations:
