@@ -19,6 +19,7 @@ parser.add_argument('--user-length', default=3, type=int, help='user-length to p
 parser.add_argument('--min-checkins', default=101, type=int, help='amount of checkins required')
 parser.add_argument('--validate-on-latest', default=False, const=True, nargs='?', type=bool, help='use only latest sequence sample to validate')
 parser.add_argument('--validate-epoch', default=3, type=int, help='run validation after this amount of epochs')
+parser.add_argument('--report-user', default=1, type=int, help='report every x user on evaluation')
 args = parser.parse_args()
 
 ###### parameters ######
@@ -70,6 +71,9 @@ def evaluate(dataloader):
                 if reset:
                     h[0, j] = torch.zeros(hidden_size)
                     reset_count[active_users[j]] += 1
+            
+            if i % 100 == 0:
+                print('active on batch', i, active_users)
             
             # for user location selections:
             #Ps = dataset.Ps
@@ -134,6 +138,8 @@ def evaluate(dataloader):
         
         formatter = "{0:.2f}"
         for j in range(args.users):
+            if (j % args.report_user > 0):
+                continue
             iter_cnt += u_iter_cnt[j]
             recall1 += u_recall1[j]
             recall5 += u_recall5[j]
