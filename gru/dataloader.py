@@ -140,8 +140,8 @@ class PoiDataset(Dataset):
             lbls.append(torch.tensor(self.sequences_labels[i_user][j]))
             self.active_user_seq[i] += 1
         
-        if idx % 10 == 0:
-            print('active on batch ', idx, self.active_users)
+        #if idx % 10 == 0:
+        #    print('active on batch ', idx, self.active_users)
         
         # collect active locations:
         '''active_locs = set()
@@ -154,7 +154,7 @@ class PoiDataset(Dataset):
             P[i, l] = 1
             poi2id[l] = i'''
             
-        return torch.stack(seqs, dim=1), torch.stack(lbls, dim=1), reset_h #, P, poi2id
+        return torch.stack(seqs, dim=1), torch.stack(lbls, dim=1), reset_h, torch.tensor(self.active_users) #, P, poi2id
         #for i in range(len(self.users)):
         #    j = idx % self.sequences_count[i]
         #    reset_h.append(j == 0)

@@ -48,7 +48,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr = lr)
 criterion = nn.MSELoss()
 
 def evaluate(dataloader):
-    h = torch.zeros(1, user_count, hidden_size).to(device)
+    h = torch.zeros(1, user_length, hidden_size).to(device)
     
     with torch.no_grad():        
         iter_cnt = 0
@@ -64,10 +64,12 @@ def evaluate(dataloader):
         u_average_precision = np.zeros(args.users)        
         reset_count = torch.zeros(user_count)
         
-        for i, (x, y, reset_h) in enumerate(dataloader):
+        for i, (x, y, reset_h, active_users) in enumerate(dataloader):
+            active_users = active_users.squeeze()
             for j, reset in enumerate(reset_h):
                 if reset:
-                    reset_count[j] += 1
+                    h[0, j] = torch.zeros(hidden_size)
+                    reset_count[active_users[j]] += 1
             
             # for user location selections:
             #Ps = dataset.Ps
@@ -82,7 +84,7 @@ def evaluate(dataloader):
             out_t = out.transpose(0, 1)
             Q = model.encoder.weight
             
-            for j in range(args.users):                
+            for j in range(user_length):                
                 out_j = out_t[j].transpose(0,1)
                 
                 # with filtering on seen locations:
@@ -100,7 +102,7 @@ def evaluate(dataloader):
                 y_j = y[:, j]
                 
                 for k in range(len(y_j)):                    
-                    if (reset_count[j] > 1):
+                    if (reset_count[active_users[j]] > 1):
                         continue
                     
                     if args.validate_on_latest and (i+1) % seq_length != 0:
@@ -117,19 +119,20 @@ def evaluate(dataloader):
                     t = y_j[k]
                     
                     if not t in r:
-                        print('we have a problem with user', j, ': t is', t, 'rank is', r)
+                        print('we have a problem with user', active_users[j], ': t is', t, 'rank is', r)
                     
                     #if (j == 1):
                     #    print('at user 1, t:', t,'r[0]:', r[0])
                     
-                    u_iter_cnt[j] += 1
-                    u_recall1[j] += t in r[:1]
-                    u_recall5[j] += t in r[:5]
-                    u_recall10[j] += t in r[:10]
+                    u_iter_cnt[active_users[j]] += 1
+                    u_recall1[active_users[j]] += t in r[:1]
+                    u_recall5[active_users[j]] += t in r[:5]
+                    u_recall10[active_users[j]] += t in r[:10]
                     idx_target = np.where(r == t)[0][0]
                     precision = 1./(idx_target+1)
-                    u_average_precision[j] += precision
-                
+                    u_average_precision[active_users[j]] += precision
+        
+        formatter = "{0:.2f}"
         for j in range(args.users):
             iter_cnt += u_iter_cnt[j]
             recall1 += u_recall1[j]
@@ -137,24 +140,25 @@ def evaluate(dataloader):
             recall10 += u_recall10[j]
             average_precision += u_average_precision[j]
             #print('Report user', j, 'recall@1', u_recall1[j]/u_iter_cnt[j], 'recall@5', u_recall5[j]/u_iter_cnt[j], 'recall@10', u_recall10[j]/u_iter_cnt[j], 'MAP', u_average_precision[j]/u_iter_cnt[j], sep='\t')
-            print('Report user', j, 'preds:', u_iter_cnt[j], 'recall@1', u_recall1[j]/u_iter_cnt[j], 'MAP', u_average_precision[j]/u_iter_cnt[j], sep='\t')
+            print('Report user', j, 'preds:', u_iter_cnt[j], 'recall@1', formatter.format(u_recall1[j]/u_iter_cnt[j]), 'MAP', formatter.format(u_average_precision[j]/u_iter_cnt[j]), sep='\t')
             
             
-        print('recall@1:', recall1/iter_cnt)
-        print('recall@5:', recall5/iter_cnt)
-        print('recall@10:', recall10/iter_cnt)
-        print('MAP', average_precision/iter_cnt)
+        print('recall@1:', formatter.format(recall1/iter_cnt))
+        print('recall@5:', formatter.format(recall5/iter_cnt))
+        print('recall@10:', formatter.format(recall10/iter_cnt))
+        print('MAP', formatter.format(average_precision/iter_cnt))
         print('predictions:', iter_cnt)
             
 
 def sample(idx):
+    assert idx < user_length # does not yet work if we wrap around users!
    
     with torch.no_grad(): 
         h = torch.zeros(1, 1, hidden_size).to(device)
         
         resets = 0
         
-        for i, (x, y, reset_h) in enumerate(dataloader_test):
+        for i, (x, y, reset_h, _) in enumerate(dataloader_test):
             if reset_h[idx]:
                 resets += 1
             
@@ -186,17 +190,20 @@ print('~~~ train ~~~', train_seqs)
 print('~~~ test ~~~', test_seqs)
 
 # try before train
-#evaluate(dataloader_test)
-#sample(sample_user_id)
+sample(sample_user_id)
+evaluate(dataloader_test)
 
 # train!
 for e in range(epochs):
     h = torch.zeros(1, user_length, hidden_size).to(device)
     
-    for i, (x, y, reset_h) in enumerate(dataloader):
+    for i, (x, y, reset_h, active_users) in enumerate(dataloader):
         for j, reset in enumerate(reset_h):
             if reset:
                 h[0, j] = torch.zeros(hidden_size)
+        
+        if i % 100 == 0:
+            print('active on batch', i, active_users[0])
         
         # reshape
         # sequence already in front!
