@@ -72,7 +72,7 @@ def evaluate(dataloader):
                     h[0, j] = torch.zeros(hidden_size)
                     reset_count[active_users[j]] += 1
             
-            if i % 100 == 0:
+            if i % 10 == 0:
                 print('active on batch', i, active_users)
             
             # for user location selections:
