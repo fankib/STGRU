@@ -14,7 +14,7 @@ class Usage(Enum):
 
 class PoiDataset(Dataset):
     
-    def __init__(self, users, locs, seq_length, split, usage, loc_count):
+    def __init__(self, users, locs, seq_length, user_length, split, usage, loc_count):
         self.users = users
         self.locs = locs
         self.labels = []
@@ -24,10 +24,29 @@ class PoiDataset(Dataset):
         self.Ps = []
         self.Qs = torch.zeros(loc_count, 1)
         self.usage = usage
+        self.user_length = user_length
+        self.loc_count = loc_count
+        self.loc_ids_of_user = [] # sets of unique locations per user
+        self.next_user_idx = 0 # current user index to add
+        self.active_users = [] # current active users
+        self.active_user_seq = [] # current active users sequences
 
         # collect locations:
         for i in range(loc_count):
-            self.Qs[i, 0] = i        
+            self.Qs[i, 0] = i    
+            
+        # collect unique locations per user:
+        for i in range(len(users)):
+            locs_of_user = set()
+            for j in self.locs[i]:
+                locs_of_user.add(j)
+            self.loc_ids_of_user.append(locs_of_user)
+            
+        # set active users:
+        for i in range(self.user_length):
+            self.next_user_idx += 1
+            self.active_users.append(i) 
+            self.active_user_seq.append(0)
         
         # collect available locations per user
         for i, loc in enumerate(self.locs):
@@ -87,22 +106,57 @@ class PoiDataset(Dataset):
         return self.sequences[idx]
     
     def __len__(self):
+        factor = len(self.users) // self.user_length
+        ##factor += 1
         if (self.usage == Usage.MIN_SEQ_LENGTH):
-            return self.min_seq_count
+            return self.min_seq_count * factor
         if (self.usage == Usage.MAX_SEQ_LENGTH):
-            return self.max_seq_count
+            return self.max_seq_count * factor
         raise Exception('Piiiep')
     
     def __getitem__(self, idx):
         seqs = []
         lbls = []
         reset_h = []
-        for i in range(len(self.users)):
-            j = idx % self.sequences_count[i]
+        for i in range(self.user_length):
+            i_user = self.active_users[i]
+            j = self.active_user_seq[i]
+            if (j >= self.sequences_count[i_user]):
+                # repalce this user in current sequence:
+                i_user = self.next_user_idx
+                j = 0
+                self.active_users[i] = i_user
+                self.active_user_seq[i] = j
+                self.next_user_idx = (self.next_user_idx + 1) % len(self.users)
+                while self.next_user_idx in self.active_users:
+                    self.next_user_idx = (self.next_user_idx + 1) % len(self.users)
+                # TODO: throw exception if wrapped around!
+            # use this user:
             reset_h.append(j == 0)
-            seqs.append(torch.tensor(self.sequences[i][j]))
-            lbls.append(torch.tensor(self.sequences_labels[i][j]))
-        return torch.stack(seqs, dim=1), torch.stack(lbls, dim=1), reset_h
+            seqs.append(torch.tensor(self.sequences[i_user][j]))
+            lbls.append(torch.tensor(self.sequences_labels[i_user][j]))
+            self.active_user_seq[i] += 1
+        
+        if idx % 10 == 0:
+            print('active on batch ', idx, self.active_users)
+        
+        # collect active locations:
+        '''active_locs = set()
+        for i in range(self.user_length):
+            i_user = self.active_users[i]
+            active_locs.update(self.loc_ids_of_user[i_user])
+        P = torch.zeros(len(active_locs), self.loc_count)
+        poi2id = torch.zeros(self.loc_count)
+        for i, l in enumerate(active_locs):
+            P[i, l] = 1
+            poi2id[l] = i'''
+            
+        return torch.stack(seqs, dim=1), torch.stack(lbls, dim=1), reset_h #, P, poi2id
+        #for i in range(len(self.users)):
+        #    j = idx % self.sequences_count[i]
+        #    reset_h.append(j == 0)
+        #    seqs.append(torch.tensor(self.sequences[i][j]))
+        #    lbls.append(torch.tensor(self.sequences_labels[i][j]))
         #return torch.tensor(self.locs[idx]), torch.tensor(self.labels[idx])
 
 
@@ -118,8 +172,8 @@ class GowallaLoader():
         self.users = []
         self.locs = []
     
-    def poi_dataset(self, seq_length, split, usage):
-        dataset = PoiDataset(self.users, self.locs, seq_length, split, usage, len(self.poi2id)) # crop latest in time
+    def poi_dataset(self, seq_length, user_length, split, usage):
+        dataset = PoiDataset(self.users, self.locs, seq_length, user_length, split, usage, len(self.poi2id)) # crop latest in time
         return dataset
     
     def locations(self):

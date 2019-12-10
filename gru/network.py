@@ -10,7 +10,8 @@ class RNN(nn.Module):
         self.input_size = input_size
         self.hidden_size = hidden_size
 
-        self.encoder = nn.Embedding(input_size, hidden_size)
+        # move out of model as it is too large
+        self.encoder = nn.Embedding(input_size, hidden_size, sparse=True)
         #self.encoder.weight.requires_grad = False
         self.gru = nn.GRU(hidden_size, hidden_size)
         self.fc = nn.Linear(hidden_size, hidden_size)
@@ -21,3 +22,20 @@ class RNN(nn.Module):
         out, h = self.gru(x_emb, h)
         y_linear = self.fc(out)
         return y_linear, h
+    
+class CpuEncoder(nn.Module):
+    ''' wraps embeddings on RAM '''
+    
+    def __init__(self, input_size, hidden_size):
+        super(CpuEncoder, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        
+        self.encoder = nn.Embedding(input_size, hidden_size)
+    
+    def active_locations(self, P):
+        # P is the 'permutation' of active locations:
+        return P * self.encoder.weight
+
+    def forward(self, x, P, poi2id):
+        pass

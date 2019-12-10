@@ -12,9 +12,10 @@ from torch.utils.data import DataLoader
 ### command line parameters ###
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', default=-1, type=int, help='the gpu to use')
-parser.add_argument('--users', default=5, type=int, help='users to process')
+parser.add_argument('--users', default=6, type=int, help='users to process')
 parser.add_argument('--dims', default=7, type=int, help='hidden dimensions to use')
-parser.add_argument('--seq_length', default=10, type=int, help='seq-length to process in one pass')
+parser.add_argument('--seq-length', default=10, type=int, help='seq-length to process in one pass (batching)')
+parser.add_argument('--user-length', default=3, type=int, help='user-length to process in one pass (batching)')
 parser.add_argument('--min-checkins', default=101, type=int, help='amount of checkins required')
 parser.add_argument('--validate-on-latest', default=False, const=True, nargs='?', type=bool, help='use only latest sequence sample to validate')
 parser.add_argument('--validate-epoch', default=3, type=int, help='run validation after this amount of epochs')
@@ -26,6 +27,7 @@ lr = 0.01
 hidden_size = args.dims
 seq_length = args.seq_length
 user_count = args.users
+user_length = args.user_length
 ########################
 
 ### CUDA Setup ###
@@ -36,8 +38,8 @@ gowalla = GowallaLoader(user_count, args.min_checkins)
 #gowalla.load('../../dataset/small-10000.txt')
 gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
 #gowalla.load('../../dataset/loc-gowalla_totalCheckins_Pcore50_50.txt')
-dataset = gowalla.poi_dataset(seq_length, Split.TRAIN, Usage.MAX_SEQ_LENGTH)
-dataset_test = gowalla.poi_dataset(seq_length, Split.TEST, Usage.MAX_SEQ_LENGTH)
+dataset = gowalla.poi_dataset(seq_length, user_length, Split.TRAIN, Usage.MAX_SEQ_LENGTH)
+dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.MAX_SEQ_LENGTH)
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
 dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
 
@@ -183,12 +185,12 @@ print('~~~ train ~~~', train_seqs)
 print('~~~ test ~~~', test_seqs)
 
 # try before train
-evaluate(dataloader_test)
-sample(sample_user_id)
+#evaluate(dataloader_test)
+#sample(sample_user_id)
 
 # train!
 for e in range(epochs):
-    h = torch.zeros(1, user_count, hidden_size).to(device)
+    h = torch.zeros(1, user_length, hidden_size).to(device)
     
     for i, (x, y, reset_h) in enumerate(dataloader):
         for j, reset in enumerate(reset_h):
