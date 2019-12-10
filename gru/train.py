@@ -103,10 +103,10 @@ def evaluate(dataloader):
                 o = torch.matmul(PQ, out_j).cpu().detach()
                 o = o.transpose(0,1)
                 o = o.contiguous().view(10, -1)
-                start = time.time()
+                #start = time.time()
                 rank = np.argsort(-1*o.numpy(), axis=1)
-                duration = time.time() - start
-                print('argsort for', active_users[j], 'in', duration)
+                #duration = time.time() - start
+                #print('argsort for', active_users[j], 'in', duration)
                 
                 y_j = y[:, j]
                 
