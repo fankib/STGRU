@@ -144,15 +144,14 @@ def evaluate(dataloader):
         
         formatter = "{0:.2f}"
         for j in range(args.users):
-            if (j % args.report_user > 0):
-                continue
             iter_cnt += u_iter_cnt[j]
             recall1 += u_recall1[j]
             recall5 += u_recall5[j]
             recall10 += u_recall10[j]
             average_precision += u_average_precision[j]
-            #print('Report user', j, 'recall@1', u_recall1[j]/u_iter_cnt[j], 'recall@5', u_recall5[j]/u_iter_cnt[j], 'recall@10', u_recall10[j]/u_iter_cnt[j], 'MAP', u_average_precision[j]/u_iter_cnt[j], sep='\t')
-            print('Report user', j, 'preds:', u_iter_cnt[j], 'recall@1', formatter.format(u_recall1[j]/u_iter_cnt[j]), 'MAP', formatter.format(u_average_precision[j]/u_iter_cnt[j]), sep='\t')
+
+            if (j % args.report_user == 0):
+                print('Report user', j, 'preds:', u_iter_cnt[j], 'recall@1', formatter.format(u_recall1[j]/u_iter_cnt[j]), 'MAP', formatter.format(u_average_precision[j]/u_iter_cnt[j]), sep='\t')
             
             
         print('recall@1:', formatter.format(recall1/iter_cnt))
