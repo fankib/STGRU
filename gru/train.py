@@ -25,7 +25,7 @@ args = parser.parse_args()
 
 ###### parameters ######
 epochs = 10000
-lr = 0.01
+lr = 0.008
 hidden_size = args.dims
 seq_length = args.seq_length
 user_count = args.users
@@ -41,12 +41,13 @@ gowalla = GowallaLoader(user_count, args.min_checkins)
 gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
 #gowalla.load('../../dataset/loc-gowalla_totalCheckins_Pcore50_50.txt')
 dataset = gowalla.poi_dataset(seq_length, user_length, Split.TRAIN, Usage.MAX_SEQ_LENGTH)
-dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.MAX_SEQ_LENGTH)
+dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.MIN_SEQ_LENGTH)
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
 dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
 
 model = RNN(gowalla.locations(), hidden_size).to(device)
 optimizer = torch.optim.Adam(model.parameters(), lr = lr)
+#optimizer = torch.optim.SGD(model.parameters(), lr = lr, momentum = 0.8)
 criterion = nn.MSELoss()
 
 def evaluate(dataloader):
@@ -214,8 +215,8 @@ for e in range(epochs):
             if reset:
                 h[0, j] = torch.zeros(hidden_size)
         
-        if i % 100 == 0:
-            print('active on batch', i, active_users[0])
+        #if i % 100 == 0:
+        #    print('active on batch', i, active_users[0])
         
         # reshape
         # sequence already in front!

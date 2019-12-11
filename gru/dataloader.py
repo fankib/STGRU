@@ -130,7 +130,10 @@ class PoiDataset(Dataset):
         for i in range(self.user_length):
             i_user = self.active_users[i]
             j = self.active_user_seq[i]
-            if (j >= self.sequences_count[i_user]):
+            max_j = self.sequences_count[i_user]
+            if (self.usage == Usage.MIN_SEQ_LENGTH):
+                max_j = self.min_seq_count
+            if (j >= max_j):
                 # repalce this user in current sequence:
                 i_user = self.next_user_idx
                 j = 0
