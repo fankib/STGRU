@@ -21,11 +21,14 @@ parser.add_argument('--min-checkins', default=101, type=int, help='amount of che
 parser.add_argument('--validate-on-latest', default=False, const=True, nargs='?', type=bool, help='use only latest sequence sample to validate')
 parser.add_argument('--validate-epoch', default=3, type=int, help='run validation after this amount of epochs')
 parser.add_argument('--report-user', default=1, type=int, help='report every x user on evaluation')
+parser.add_argument('--regularization', default=0.0, type=float, help='regularization weight')
+parser.add_argument('--lr', default = 0.01, type=float, help='learning rate')
+parser.add_argument('--epochs', default=1000, type=int, help='amount of epochs')
 args = parser.parse_args()
 
 ###### parameters ######
-epochs = 10000
-lr = 0.008
+epochs = args.epochs
+lr = args.lr
 hidden_size = args.dims
 seq_length = args.seq_length
 user_count = args.users
@@ -41,7 +44,7 @@ gowalla = GowallaLoader(user_count, args.min_checkins)
 gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
 #gowalla.load('../../dataset/loc-gowalla_totalCheckins_Pcore50_50.txt')
 dataset = gowalla.poi_dataset(seq_length, user_length, Split.TRAIN, Usage.MAX_SEQ_LENGTH)
-dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.MIN_SEQ_LENGTH)
+dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.CUSTOM, 3)
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
 dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
 
@@ -50,7 +53,7 @@ optimizer = torch.optim.Adam(model.parameters(), lr = lr)
 #optimizer = torch.optim.SGD(model.parameters(), lr = lr, momentum = 0.8)
 criterion = nn.MSELoss()
 
-def evaluate(dataloader):
+def evaluate_test():
     dataset_test.reset()
     h = torch.zeros(1, user_length, hidden_size).to(device)
     
@@ -68,7 +71,7 @@ def evaluate(dataloader):
         u_average_precision = np.zeros(args.users)        
         reset_count = torch.zeros(user_count)
         
-        for i, (x, y, reset_h, active_users) in enumerate(dataloader):
+        for i, (x, y, reset_h, active_users) in enumerate(dataloader_test):
             active_users = active_users.squeeze()
             for j, reset in enumerate(reset_h):
                 if reset:
@@ -104,10 +107,15 @@ def evaluate(dataloader):
                 o = torch.matmul(PQ, out_j).cpu().detach()
                 o = o.transpose(0,1)
                 o = o.contiguous().view(10, -1)
-                #start = time.time()
-                rank = np.argsort(-1*o.numpy(), axis=1)
-                #duration = time.time() - start
-                #print('argsort for', active_users[j], 'in', duration)
+                
+                start = time.time()
+                # np sort:
+                #rank = np.argsort(-1*o.numpy(), axis=1)
+                # torch sort:
+                #rank = torch.argsort(o, dim=1, descending = True)[:5000, :].cpu().numpy()
+                rank = torch.argsort(o, dim=1, descending = True).cpu().numpy()
+                duration = time.time() - start
+                print('argsort for', active_users[j], 'in', duration)
                 
                 y_j = y[:, j]
                 
@@ -203,7 +211,7 @@ print('~~~ test ~~~', test_seqs)
 
 # try before train
 sample(sample_user_id)
-evaluate(dataloader_test)
+evaluate_test()
 
 # train!
 for e in range(epochs):
@@ -254,10 +262,8 @@ for e in range(epochs):
         print(f'Loss: {latest_loss}')
     if (e+1) % args.validate_epoch == 0:
         sample(sample_user_id)
-        #print('~~~ Training Evaluation ~~~')
-        #evaluate(dataloader)
         print('~~~ Test Set Evaluation ~~~')
-        evaluate(dataloader_test)
+        evaluate_test()
 
 
 def visualize_embedding(embedding):

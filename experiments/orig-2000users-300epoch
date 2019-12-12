@@ -1,0 +1,74 @@
+Epoch: 300/10000
+Loss: 7.9755496699363e-05
+in 115 expected 115 : idx-target 4 prediction [ 2019 10002 71870   115  2039]
+in 115 expected 2017 : idx-target 110 prediction [ 2019 10002   115  2039  2068]
+in 2017 expected 115 : idx-target 3 prediction [ 2019 22320   115  2068  2017]
+in 115 expected 115 : idx-target 2 prediction [ 2019   115 22320  2068  2017]
+in 115 expected 115 : idx-target 2 prediction [ 2019   115  2068  2017 22309]
+in 115 expected 2019 : idx-target 2 prediction [  115  2019  2068  2017 22309]
+in 2019 expected 2017 : idx-target 7 prediction [ 2019   115  2068 22309  2039]
+in 2017 expected 2019 : idx-target 1 prediction [  2019   2068 123594   2017    115]
+in 2019 expected 115 : idx-target 3 prediction [  2019   2068    115 123594  22309]
+in 115 expected 2023 : idx-target 60 prediction [ 2019   115  2068  2017 22309]
+~~~ Test Set Evaluation ~~~
+active on batch 0 tensor([  0,   1,   2,   3,   4,   5,   6,   7,   8,   9,  10,  11,  12,  13,
+         14,  15,  16,  17,  18,  19,  20,  21,  22,  23,  24,  25,  26,  27,
+         28,  29,  30,  31,  32,  33,  34,  35,  36,  37,  38,  39,  40,  41,
+         42,  43,  44,  45,  46,  47,  48,  49,  50,  51,  52,  53,  54,  55,
+         56,  57,  58,  59,  60,  61,  62,  63,  64,  65,  66,  67,  68,  69,
+         70,  71,  72,  73,  74,  75,  76,  77,  78,  79,  80,  81,  82,  83,
+         84,  85,  86,  87,  88,  89,  90,  91,  92,  93,  94,  95,  96,  97,
+         98,  99, 100, 101, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111,
+        112, 113, 114, 115, 116, 117, 118, 119, 120, 121, 122, 123, 124, 125,
+        126, 127, 128, 129, 130, 131, 132, 133, 134, 135, 136, 137, 138, 139,
+        140, 141, 142, 143, 144, 145, 146, 147, 148, 149, 150, 151, 152, 153,
+        154, 155, 156, 157, 158, 159, 160, 161, 162, 163, 164, 165, 166, 167,
+        168, 169, 170, 171, 172, 173, 174, 175, 176, 177, 178, 179, 180, 181,
+        182, 183, 184, 185, 186, 187, 188, 189, 190, 191, 192, 193, 194, 195,
+        196, 197, 198, 199])
+Report user     0       preds:  10.0    recall@1        0.00    MAP     0.10
+Report user     50      preds:  10.0    recall@1        0.10    MAP     0.38
+Report user     100     preds:  10.0    recall@1        0.10    MAP     0.13
+Report user     150     preds:  10.0    recall@1        0.10    MAP     0.16
+Report user     200     preds:  10.0    recall@1        0.10    MAP     0.16
+Report user     250     preds:  10.0    recall@1        0.00    MAP     0.06
+Report user     300     preds:  10.0    recall@1        0.10    MAP     0.15
+Report user     350     preds:  10.0    recall@1        0.20    MAP     0.34
+Report user     400     preds:  10.0    recall@1        0.10    MAP     0.25
+Report user     450     preds:  10.0    recall@1        0.10    MAP     0.17
+Report user     500     preds:  10.0    recall@1        0.00    MAP     0.23
+Report user     550     preds:  10.0    recall@1        0.10    MAP     0.28
+Report user     600     preds:  10.0    recall@1        0.10    MAP     0.32
+Report user     650     preds:  10.0    recall@1        0.40    MAP     0.52
+Report user     700     preds:  10.0    recall@1        0.40    MAP     0.50
+Report user     750     preds:  10.0    recall@1        0.20    MAP     0.32
+Report user     800     preds:  10.0    recall@1        0.20    MAP     0.29
+Report user     850     preds:  10.0    recall@1        0.10    MAP     0.25
+Report user     900     preds:  10.0    recall@1        0.00    MAP     0.14
+Report user     950     preds:  10.0    recall@1        0.20    MAP     0.39
+Report user     1000    preds:  10.0    recall@1        0.30    MAP     0.49
+Report user     1050    preds:  10.0    recall@1        0.10    MAP     0.13
+Report user     1100    preds:  10.0    recall@1        0.20    MAP     0.30
+Report user     1150    preds:  10.0    recall@1        0.30    MAP     0.32
+Report user     1200    preds:  10.0    recall@1        0.10    MAP     0.15
+Report user     1250    preds:  10.0    recall@1        0.20    MAP     0.31
+Report user     1300    preds:  10.0    recall@1        0.10    MAP     0.34
+Report user     1350    preds:  10.0    recall@1        0.10    MAP     0.23
+Report user     1400    preds:  10.0    recall@1        0.10    MAP     0.18
+Report user     1450    preds:  10.0    recall@1        0.10    MAP     0.15
+Report user     1500    preds:  10.0    recall@1        0.40    MAP     0.52
+Report user     1550    preds:  10.0    recall@1        0.10    MAP     0.15
+Report user     1600    preds:  10.0    recall@1        0.00    MAP     0.08
+Report user     1650    preds:  10.0    recall@1        0.20    MAP     0.23
+Report user     1700    preds:  10.0    recall@1        0.00    MAP     0.02
+Report user     1750    preds:  10.0    recall@1        0.00    MAP     0.12
+Report user     1800    preds:  10.0    recall@1        0.10    MAP     0.16
+Report user     1850    preds:  10.0    recall@1        0.20    MAP     0.34
+Report user     1900    preds:  10.0    recall@1        0.10    MAP     0.24
+Report user     1950    preds:  10.0    recall@1        0.20    MAP     0.35
+recall@1: 0.13
+recall@5: 0.40
+recall@10: 0.51
+MAP 0.25
+predictions: 20000.0
+

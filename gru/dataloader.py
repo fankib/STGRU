@@ -10,6 +10,7 @@ class Split(Enum):
 class Usage(Enum):
     MIN_SEQ_LENGTH = 0
     MAX_SEQ_LENGTH = 1
+    CUSTOM = 2
     
 
 class PoiDataset(Dataset):
@@ -27,7 +28,7 @@ class PoiDataset(Dataset):
             self.active_user_seq.append(0)
         
     
-    def __init__(self, users, locs, seq_length, user_length, split, usage, loc_count):
+    def __init__(self, users, locs, seq_length, user_length, split, usage, loc_count, custom_seq_count):
         self.users = users
         self.locs = locs
         self.labels = []
@@ -39,6 +40,7 @@ class PoiDataset(Dataset):
         self.usage = usage
         self.user_length = user_length
         self.loc_count = loc_count
+        self.custom_seq_count = custom_seq_count
         #self.loc_ids_of_user = [] # sets of unique locations per user
 
         self.reset()
@@ -109,6 +111,9 @@ class PoiDataset(Dataset):
             print('load', len(users), 'users with min_seq_count', self.min_seq_count, 'batches:', self.__len__())
         if (self.usage == Usage.MAX_SEQ_LENGTH):
             print('load', len(users), 'users with max_seq_count', self.max_seq_count, 'batches:', self.__len__())
+        if (self.usage == Usage.CUSTOM):
+            print('load', len(users), 'users with custom_seq_count', self.custom_seq_count, 'Batches:', self.__len__())
+            
     
     def sequences_by_user(self, idx):
         return self.sequences[idx]
@@ -121,6 +126,8 @@ class PoiDataset(Dataset):
             # estimated capacity:
             estimated = self.capacity // self.user_length
             return max(self.max_seq_count, estimated)
+        if (self.usage == Usage.CUSTOM):
+            return self.custom_seq_count * (len(self.users) // self.user_length)
         raise Exception('Piiiep')
     
     def __getitem__(self, idx):
@@ -133,6 +140,8 @@ class PoiDataset(Dataset):
             max_j = self.sequences_count[i_user]
             if (self.usage == Usage.MIN_SEQ_LENGTH):
                 max_j = self.min_seq_count
+            if (self.usage == Usage.CUSTOM):
+                max_j = min(max_j, self.custom_seq_count) # use either the users maxima count or limit by custom count
             if (j >= max_j):
                 # repalce this user in current sequence:
                 i_user = self.next_user_idx
@@ -184,8 +193,8 @@ class GowallaLoader():
         self.users = []
         self.locs = []
     
-    def poi_dataset(self, seq_length, user_length, split, usage):
-        dataset = PoiDataset(self.users, self.locs, seq_length, user_length, split, usage, len(self.poi2id)) # crop latest in time
+    def poi_dataset(self, seq_length, user_length, split, usage, custom_seq_count = 1):
+        dataset = PoiDataset(self.users, self.locs, seq_length, user_length, split, usage, len(self.poi2id), custom_seq_count) # crop latest in time
         return dataset
     
     def locations(self):
