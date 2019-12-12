@@ -106,49 +106,74 @@ def evaluate_test():
 
                 o = torch.matmul(PQ, out_j).cpu().detach()
                 o = o.transpose(0,1)
-                o = o.contiguous().view(10, -1)
+                o = o.contiguous().view(seq_length, -1)
                 
-                start = time.time()
-                # np sort:
-                #rank = np.argsort(-1*o.numpy(), axis=1)
-                # torch sort:
-                #rank = torch.argsort(o, dim=1, descending = True)[:5000, :].cpu().numpy()
-                rank = torch.argsort(o, dim=1, descending = True).cpu().numpy()
-                duration = time.time() - start
-                print('argsort for', active_users[j], 'in', duration)
+                do_map_only = True
+                if (do_map_only):
+                    y_j = y[:, j]
+                    
+                    for k in range(len(y_j)):                    
+                        if (reset_count[active_users[j]] > 1):
+                            continue
+                        
+                        if args.validate_on_latest and (i+1) % seq_length != 0:
+                            continue
+
+                        r_kj = o[k, :].cpu().numpy()
+
+                        t = y_j[k]
+                        
+                        t_val = r_kj[t]
+                        upper = np.where(r_kj > t_val)[0]
+                        precision = 1. / (1+len(upper))
+                        u_iter_cnt[active_users[j]] += 1
+                        u_average_precision[active_users[j]] += precision
+                    
                 
-                y_j = y[:, j]
-                
-                for k in range(len(y_j)):                    
-                    if (reset_count[active_users[j]] > 1):
-                        continue
+                do_recall = False
+                if (do_recall):
                     
-                    if args.validate_on_latest and (i+1) % seq_length != 0:
-                        continue
+                    #start = time.time()
+                    # np sort:
+                    #rank = np.argsort(-1*o.numpy(), axis=1)
+                    # torch sort:
+                    #rank = torch.argsort(o, dim=1, descending = True)[:5000, :].cpu().numpy()
+                    rank = torch.argsort(o, dim=1, descending = True).cpu().numpy()
+                    #duration = time.time() - start
+                    #print('argsort for', active_users[j], 'in', duration)
                     
-                    #if Ps[j].size()[0] == 1:
-                    #    continue # skip user with single location.
+                    y_j = y[:, j]
                     
-                    r = rank[k, :]
-                    # with filtering on seen locations:
-                    #r = torch.tensor(PQs[r]) # transform to given locations
-                    # w/o filtering on seen locations:
-                    r = torch.tensor(r)
-                    t = y_j[k]
-                    
-                    if not t in r:
-                        print('we have a problem with user', active_users[j], ': t is', t, 'rank is', r)
-                    
-                    #if (j == 1):
-                    #    print('at user 1, t:', t,'r[0]:', r[0])
-                    
-                    u_iter_cnt[active_users[j]] += 1
-                    u_recall1[active_users[j]] += t in r[:1]
-                    u_recall5[active_users[j]] += t in r[:5]
-                    u_recall10[active_users[j]] += t in r[:10]
-                    idx_target = np.where(r == t)[0][0]
-                    precision = 1./(idx_target+1)
-                    u_average_precision[active_users[j]] += precision
+                    for k in range(len(y_j)):                    
+                        if (reset_count[active_users[j]] > 1):
+                            continue
+                        
+                        if args.validate_on_latest and (i+1) % seq_length != 0:
+                            continue
+                        
+                        #if Ps[j].size()[0] == 1:
+                        #    continue # skip user with single location.
+                        
+                        r = rank[k, :]
+                        # with filtering on seen locations:
+                        #r = torch.tensor(PQs[r]) # transform to given locations
+                        # w/o filtering on seen locations:
+                        r = torch.tensor(r)
+                        t = y_j[k]
+                        
+                        if not t in r:
+                            print('we have a problem with user', active_users[j], ': t is', t, 'rank is', r)
+                        
+                        #if (j == 1):
+                        #    print('at user 1, t:', t,'r[0]:', r[0])
+                        
+                        u_iter_cnt[active_users[j]] += 1
+                        u_recall1[active_users[j]] += t in r[:1]
+                        u_recall5[active_users[j]] += t in r[:5]
+                        u_recall10[active_users[j]] += t in r[:10]
+                        idx_target = np.where(r == t)[0][0]
+                        precision = 1./(idx_target+1)
+                        u_average_precision[active_users[j]] += precision
         
         formatter = "{0:.2f}"
         for j in range(args.users):
