@@ -108,6 +108,8 @@ def evaluate_test():
                 o = o.transpose(0,1)
                 o = o.contiguous().view(seq_length, -1)
                 
+                # Only compute MAP is significantly faster as we ommit sorting.
+                
                 do_map_only = True
                 if (do_map_only):
                     y_j = y[:, j]
@@ -186,10 +188,10 @@ def evaluate_test():
             if (j % args.report_user == 0):
                 print('Report user', j, 'preds:', u_iter_cnt[j], 'recall@1', formatter.format(u_recall1[j]/u_iter_cnt[j]), 'MAP', formatter.format(u_average_precision[j]/u_iter_cnt[j]), sep='\t')
             
-            
-        print('recall@1:', formatter.format(recall1/iter_cnt))
-        print('recall@5:', formatter.format(recall5/iter_cnt))
-        print('recall@10:', formatter.format(recall10/iter_cnt))
+        if (do_recall):
+            print('recall@1:', formatter.format(recall1/iter_cnt))
+            print('recall@5:', formatter.format(recall5/iter_cnt))
+            print('recall@10:', formatter.format(recall10/iter_cnt))
         print('MAP', formatter.format(average_precision/iter_cnt))
         print('predictions:', iter_cnt)
             
