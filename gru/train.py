@@ -35,12 +35,15 @@ seq_length = args.seq_length
 user_count = args.users
 user_length = args.user_length
 weight_decay = args.regularization
-USE_CROSS_ENTROPY = True
+use_cross_entropy = args.cross_entropy
 ########################
 
 ### CUDA Setup ###
 device = torch.device('cpu') if args.gpu == -1 else torch.device('cuda', args.gpu)
 print('use', device)
+
+trainer = CrossEntropyTrainer() if use_cross_entropy else BprTrainer()
+print(trainer.greeter())
 
 gowalla = GowallaLoader(user_count, args.min_checkins)
 #gowalla.load('../../dataset/small-10000.txt')
@@ -51,8 +54,7 @@ dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.CU
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
 dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
 
-trainer = CrossEntropyTrainer() if USE_CROSS_ENTROPY else BprTrainer()
-trainer.set_batch_params(seq_length, user_length)
+# setup trainer
 trainer.prepare(gowalla.locations(), hidden_size, device)
     
 
@@ -211,7 +213,7 @@ def sample(idx):
                 
                 out, h = trainer.evaluate(test_input, h)
                 
-                #if USE_CROSS_ENTROPY:
+                #if use_cross_entropy:
                 #    probs = y_ts[-1].transpose(0, 1)
                 #else:
                 #    y_last = y_ts[-1].transpose(0,1) # latest

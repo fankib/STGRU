@@ -13,10 +13,6 @@ class Trainer():
         ''' Initializes the model '''
         pass
     
-    def set_batch_params(self, seq_length, user_length):
-        self.seq_length = seq_length
-        self.user_length = user_length
-    
     def parameters(self):
         return self.model.parameters()
     
@@ -37,6 +33,9 @@ class Trainer():
     
 
 class BprTrainer(Trainer):
+    
+    def greeter(self):
+        return 'Use BPR training'
     
     def prepare(self, loc_count, hidden_size, device):
         self.hidden_size = hidden_size
@@ -75,6 +74,9 @@ class BprTrainer(Trainer):
         return l, h
     
 class CrossEntropyTrainer(Trainer):
+    
+    def greeter(self):
+        return 'Use Cross Entropy training'
     
     def prepare(self, loc_count, hidden_size, device):
         self.loc_count = loc_count
