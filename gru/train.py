@@ -216,7 +216,7 @@ def sample(idx):
                 #else:
                 #    y_last = y_ts[-1].transpose(0,1) # latest
                 #    probs = torch.matmul(model.encoder.weight, y_last).cpu().detach().numpy()
-                probs = out[0][-1]
+                probs = out[0][-1].cpu().detach().numpy()
                 rank = np.argsort(np.squeeze(-probs))        
             
                 print('in', test_input.item(), 'expected', y[offset+i-1].item(), ': idx-target', np.where(rank == y[offset+i-1].item())[0][0] + 1, 'prediction', rank[:5])
