@@ -24,6 +24,7 @@ parser.add_argument('--report-user', default=1, type=int, help='report every x u
 parser.add_argument('--regularization', default=0.0, type=float, help='regularization weight')
 parser.add_argument('--lr', default = 0.01, type=float, help='learning rate')
 parser.add_argument('--epochs', default=1000, type=int, help='amount of epochs')
+parser.add_argument('--cross-entropy', default=False, const=True, nargs='?', type=bool, help='use cross entropy loss instead of BPR loss for training')
 args = parser.parse_args()
 
 ###### parameters ######
