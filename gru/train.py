@@ -6,9 +6,9 @@ import numpy as np
 import argparse
 import time
 
-from network import RNN
 from dataloader import GowallaLoader, Split, Usage
 from torch.utils.data import DataLoader
+from trainer import BprTrainer, CrossEntropyTrainer
 
 ### command line parameters ###
 parser = argparse.ArgumentParser()
@@ -33,6 +33,8 @@ hidden_size = args.dims
 seq_length = args.seq_length
 user_count = args.users
 user_length = args.user_length
+weight_decay = args.regularization
+USE_CROSS_ENTROPY = True
 ########################
 
 ### CUDA Setup ###
@@ -48,10 +50,13 @@ dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.CU
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
 dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
 
-model = RNN(gowalla.locations(), hidden_size).to(device)
-optimizer = torch.optim.Adam(model.parameters(), lr = lr)
+trainer = CrossEntropyTrainer() if USE_CROSS_ENTROPY else BprTrainer()
+trainer.set_batch_params(seq_length, user_length)
+trainer.prepare(gowalla.locations(), hidden_size, device)
+    
+
+optimizer = torch.optim.Adam(trainer.parameters(), lr = lr, weight_decay = weight_decay)
 #optimizer = torch.optim.SGD(model.parameters(), lr = lr, momentum = 0.8)
-criterion = nn.MSELoss()
 
 def evaluate_test():
     dataset_test.reset()
@@ -81,35 +86,17 @@ def evaluate_test():
             if i % 10 == 0:
                 print('active on batch', i, active_users)
             
-            # for user location selections:
-            #Ps = dataset.Ps
-            #Qs = dataset.Qs
-            
             # squeeze for reasons of "loader-batch-size-is-1"
             x = x.squeeze().to(device)
             y = y.squeeze()
         
-            out, h = model(x, h)
+            out, h = trainer.evaluate(x, h)
             
-            out_t = out.transpose(0, 1)
-            Q = model.encoder.weight
-            
-            for j in range(user_length):                
-                out_j = out_t[j].transpose(0,1)
+            for j in range(user_length):  
+                # o contains a per user list of votes for all locations for each sequence entry
+                o = out[j]
                 
-                # with filtering on seen locations:
-                #PQ = torch.matmul(Ps[j].to(device), Q)
-                #PQs = torch.matmul(Ps[j], Qs).squeeze().long().numpy()
-                
-                # w/o filtering on seen locations:
-                PQ = Q
-
-                o = torch.matmul(PQ, out_j).cpu().detach()
-                o = o.transpose(0,1)
-                o = o.contiguous().view(seq_length, -1)
-                
-                # Only compute MAP is significantly faster as we ommit sorting.
-                
+                # Only compute MAP is significantly faster as we ommit sorting.                
                 do_map_only = True
                 if (do_map_only):
                     y_j = y[:, j]
@@ -219,10 +206,16 @@ def sample(idx):
             test_input = x[:offset].view(offset, 1)
     
             for i in range(10):
-                y_ts, h = model(test_input, h)
-                y_last = y_ts[-1].transpose(0,1) # latest
-            
-                probs = torch.matmul(model.encoder.weight, y_last).cpu().detach().numpy()
+                #y_ts, h = model(test_input, h)
+                
+                out, h = trainer.evaluate(test_input, h)
+                
+                #if USE_CROSS_ENTROPY:
+                #    probs = y_ts[-1].transpose(0, 1)
+                #else:
+                #    y_last = y_ts[-1].transpose(0,1) # latest
+                #    probs = torch.matmul(model.encoder.weight, y_last).cpu().detach().numpy()
+                probs = out[0][-1]
                 rank = np.argsort(np.squeeze(-probs))        
             
                 print('in', test_input.item(), 'expected', y[offset+i-1].item(), ': idx-target', np.where(rank == y[offset+i-1].item())[0][0] + 1, 'prediction', rank[:5])
@@ -260,30 +253,13 @@ for e in range(epochs):
         x = x.squeeze().to(device)
         y = y.squeeze().to(device)
         
-        optimizer.zero_grad() # zero out gradients 
-        
-        out, h = model(x, h)
-        #out = out.transpose(0, 1)
-        y_emb = model.encoder(y)
-        
-        # reshape
-        out = out.view(-1, hidden_size)
-        out_t = out.transpose(0, 1)
-        y_emb = y_emb.contiguous().view(-1, hidden_size)
-        Q = model.encoder.weight
-        
-        neg_o = torch.matmul(Q, out_t)
-        pos_o = torch.matmul(y_emb, out_t).diag()
-        
-        loss = torch.log(1 + torch.exp(-(pos_o - neg_o)))
-        loss = torch.mean(loss)
-
-        #loss = criterion(out, y_emb)
+        optimizer.zero_grad()
+        loss, h = trainer.loss(x, y, h)
         loss.backward(retain_graph=True) # backpropagate through time to adjust the weights and find the gradients of the loss function
-        
-        latest_loss = loss.item()
-        
+        latest_loss = loss.item()        
         optimizer.step()
+        
+    # statistics:
     if (e+1) % 1 == 0:
         print(f'Epoch: {e+1}/{epochs}')
         print(f'Loss: {latest_loss}')
