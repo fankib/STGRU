@@ -25,7 +25,7 @@ parser.add_argument('--regularization', default=0.0, type=float, help='regulariz
 parser.add_argument('--lr', default = 0.01, type=float, help='learning rate')
 parser.add_argument('--epochs', default=1000, type=int, help='amount of epochs')
 parser.add_argument('--cross-entropy', default=False, const=True, nargs='?', type=bool, help='use cross entropy loss instead of BPR loss for training')
-parser.add_argumetn('--skip-sanity', default=False, const=True, nargs='?', type=bool, help='skip sanity tests')
+parser.add_argument('--skip-sanity', default=False, const=True, nargs='?', type=bool, help='skip sanity tests')
 args = parser.parse_args()
 
 ###### parameters ######
