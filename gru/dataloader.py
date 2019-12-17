@@ -92,6 +92,7 @@ class PoiDataset(Dataset):
         self.capacity = 0
         for i, (loc, label) in enumerate(zip(self.locs, self.labels)):
             seq_count = len(loc) // seq_length
+            assert seq_count > 0 # fix seq_length and min-checkins in order to have test sequences in a 80/20 split!
             seqs = []
             seq_lbls = []
             for j in range(seq_count):
@@ -154,6 +155,7 @@ class PoiDataset(Dataset):
                 # TODO: throw exception if wrapped around!
             # use this user:
             reset_h.append(j == 0)
+            print('i_user', i_user, 'j', j)
             seqs.append(torch.tensor(self.sequences[i_user][j]))
             lbls.append(torch.tensor(self.sequences_labels[i_user][j]))
             self.active_user_seq[i] += 1
@@ -194,7 +196,7 @@ class GowallaLoader():
         self.locs = []
     
     def poi_dataset(self, seq_length, user_length, split, usage, custom_seq_count = 1):
-        dataset = PoiDataset(self.users, self.locs, seq_length, user_length, split, usage, len(self.poi2id), custom_seq_count) # crop latest in time
+        dataset = PoiDataset(self.users.copy(), self.locs.copy(), seq_length, user_length, split, usage, len(self.poi2id), custom_seq_count) # crop latest in time
         return dataset
     
     def locations(self):
