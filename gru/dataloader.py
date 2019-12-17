@@ -155,7 +155,6 @@ class PoiDataset(Dataset):
                 # TODO: throw exception if wrapped around!
             # use this user:
             reset_h.append(j == 0)
-            print('i_user', i_user, 'j', j)
             seqs.append(torch.tensor(self.sequences[i_user][j]))
             lbls.append(torch.tensor(self.sequences_labels[i_user][j]))
             self.active_user_seq[i] += 1
