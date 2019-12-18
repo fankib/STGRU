@@ -52,7 +52,7 @@ gowalla = GowallaLoader(user_count, args.min_checkins)
 gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
 #gowalla.load('../../dataset/loc-gowalla_totalCheckins_Pcore50_50.txt')
 dataset = gowalla.poi_dataset(seq_length, user_length, Split.TRAIN, Usage.MAX_SEQ_LENGTH)
-dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.CUSTOM, 3)
+dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.MAX_SEQ_LENGTH)
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
 dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
 
