@@ -246,6 +246,7 @@ if not skip_sanity:
 for e in range(epochs):
     h = torch.zeros(1, user_length, hidden_size).to(device)
     
+    dataset.shuffle_users() # shuffle users before each epoch!
     for i, (x, y, reset_h, active_users) in enumerate(dataloader):
         for j, reset in enumerate(reset_h):
             if reset:

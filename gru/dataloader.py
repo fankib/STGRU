@@ -1,6 +1,7 @@
 import torch
 from torch.utils.data import Dataset
 from enum import Enum
+import random
 
 class Split(Enum):
     TRAIN = 0
@@ -20,6 +21,7 @@ class PoiDataset(Dataset):
         self.next_user_idx = 0 # current user index to add
         self.active_users = [] # current active users
         self.active_user_seq = [] # current active users sequences
+        self.user_permutation = [] # shuffle users during training
         
         # set active users:
         for i in range(self.user_length):
@@ -27,6 +29,21 @@ class PoiDataset(Dataset):
             self.active_users.append(i) 
             self.active_user_seq.append(0)
         
+        # use 1:1 permutation:
+        for i in range(len(self.users)):
+            self.user_permutation.append(i)
+
+        
+    def shuffle_users(self):
+        random.shuffle(self.user_permutation)    
+        # reset active users:
+        self.next_user_idx = 0
+        self.active_users = []
+        self.active_user_seq = []
+        for i in range(self.user_length):
+            self.next_user_idx += 1
+            self.active_users.append(self.user_permutation[i]) 
+            self.active_user_seq.append(0)
     
     def __init__(self, users, locs, seq_length, user_length, split, usage, loc_count, custom_seq_count):
         self.users = users
@@ -145,12 +162,12 @@ class PoiDataset(Dataset):
                 max_j = min(max_j, self.custom_seq_count) # use either the users maxima count or limit by custom count
             if (j >= max_j):
                 # repalce this user in current sequence:
-                i_user = self.next_user_idx
+                i_user = self.user_permutation[self.next_user_idx]
                 j = 0
                 self.active_users[i] = i_user
                 self.active_user_seq[i] = j
                 self.next_user_idx = (self.next_user_idx + 1) % len(self.users)
-                while self.next_user_idx in self.active_users:
+                while self.user_permutation[self.next_user_idx] in self.active_users:
                     self.next_user_idx = (self.next_user_idx + 1) % len(self.users)
                 # TODO: throw exception if wrapped around!
             # use this user:
