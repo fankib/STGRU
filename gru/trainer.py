@@ -2,28 +2,29 @@
 import torch
 from torch import nn
 
-from network import RNN, RNN_cls
+from network import RNN, RNN_user, RNN_cls, RNN_cls_user
 
 class Trainer():
     
-    def __init__(self):
+    def __init__(self, use_user_embedding):
         self.model = None
+        self.use_user_embedding = use_user_embedding
     
-    def prepare(self, loc_count, hidden_size, device):
+    def prepare(self, loc_count, user_count, hidden_size, device):
         ''' Initializes the model '''
         pass
     
     def parameters(self):
         return self.model.parameters()
     
-    def evaluate(self, x, h):
+    def evaluate(self, x, h, active_users):
         ''' takes a sequence x (sequence x users x hidden)
         then does the magic and returns a list of user x locations x sequnce
         describing the probabilities in a per user way
         '''
         pass
     
-    def loss(self, x, y, h):
+    def loss(self, x, y, h, active_users):
         ''' takes a sequence x (sequence x users x hidden)
         and corresponding labels (location_id) to
         compute the training loss '''
@@ -32,19 +33,24 @@ class Trainer():
         pass
     
 
-class BprTrainer(Trainer):
+class BprTrainer(Trainer):        
     
     def greeter(self):
-        return 'Use BPR training'
+        if not self.use_user_embedding:
+            return 'Use BPR training'
+        return 'Use BPR training with user embeddings'
     
-    def prepare(self, loc_count, hidden_size, device):
+    def prepare(self, loc_count, user_count, hidden_size, device):
         self.hidden_size = hidden_size
-        self.model = RNN(loc_count, hidden_size).to(device)
+        if self.use_user_embedding:
+            self.model = RNN_user(loc_count, user_count, hidden_size).to(device)
+        else:
+            self.model = RNN(loc_count, hidden_size).to(device)
     
-    def evaluate(self, x, h):
+    def evaluate(self, x, h, active_users):
         seq_length = x.shape[0]
         user_length = x.shape[1]
-        out, h = self.model(x, h)
+        out, h = self.model(x, h, active_users)
         out_t = out.transpose(0, 1)
         response = []
         Q = self.model.encoder.weight
@@ -56,8 +62,8 @@ class BprTrainer(Trainer):
             response.append(o)
         return response, h
 
-    def loss(self, x, y, h):
-        out, h = self.model(x, h)
+    def loss(self, x, y, h, active_users):
+        out, h = self.model(x, h, active_users)
         y_emb = self.model.encoder(y)
         
         # reshape
@@ -76,20 +82,25 @@ class BprTrainer(Trainer):
 class CrossEntropyTrainer(Trainer):
     
     def greeter(self):
-        return 'Use Cross Entropy training'
+        if not self.use_user_embedding:
+            return 'Use Cross Entropy training'
+        return 'Use Cross Entropy training with user embeddings'
     
-    def prepare(self, loc_count, hidden_size, device):
+    def prepare(self, loc_count, user_count, hidden_size, device):
         self.loc_count = loc_count
         self.cross_entropy_loss = nn.CrossEntropyLoss()
-        self.model = RNN_cls(loc_count, hidden_size).to(device)
+        if self.use_user_embedding:
+            self.model = RNN_cls_user(loc_count, user_count, hidden_size).to(device)
+        else:
+            self.model = RNN_cls(loc_count, hidden_size).to(device)
     
-    def evaluate(self, x, h):
-        out, h = self.model(x, h)
+    def evaluate(self, x, h, active_users):
+        out, h = self.model(x, h, active_users)
         out_t = out.transpose(0, 1)
         return out_t, h # model output is directly associated with the ranking per location.
     
-    def loss(self, x, y, h):
-        out, h = self.model(x, h)
+    def loss(self, x, y, h, active_users):
+        out, h = self.model(x, h, active_users)
         out = out.view(-1, self.loc_count)
         y = y.view(-1)
         l = self.cross_entropy_loss(out, y)

@@ -26,6 +26,8 @@ parser.add_argument('--lr', default = 0.01, type=float, help='learning rate')
 parser.add_argument('--epochs', default=1000, type=int, help='amount of epochs')
 parser.add_argument('--cross-entropy', default=False, const=True, nargs='?', type=bool, help='use cross entropy loss instead of BPR loss for training')
 parser.add_argument('--skip-sanity', default=False, const=True, nargs='?', type=bool, help='skip sanity tests')
+parser.add_argument('--user-embedding', default=False, const=True, nargs='?', type=bool, help='activate user embeddings')
+parser.add_argument('--dataset', default='loc-gowalla_totalCheckins.txt', type=str, help='the dataset under ../../dataset/<dataset.txt> to load')
 args = parser.parse_args()
 
 ###### parameters ######
@@ -38,27 +40,26 @@ user_length = args.user_length
 weight_decay = args.regularization
 use_cross_entropy = args.cross_entropy
 skip_sanity = args.skip_sanity
+use_user_embedding = args.user_embedding
+dataset_file = '../../dataset/{}'.format(args.dataset)
 ########################
 
 ### CUDA Setup ###
 device = torch.device('cpu') if args.gpu == -1 else torch.device('cuda', args.gpu)
 print('use', device)
 
-trainer = CrossEntropyTrainer() if use_cross_entropy else BprTrainer()
+trainer = CrossEntropyTrainer(use_user_embedding) if use_cross_entropy else BprTrainer(use_user_embedding)
 print(trainer.greeter())
 
 gowalla = GowallaLoader(user_count, args.min_checkins)
-#gowalla.load('../../dataset/small-10000.txt')
-gowalla.load('../../dataset/loc-gowalla_totalCheckins.txt')
-#gowalla.load('../../dataset/loc-gowalla_totalCheckins_Pcore50_50.txt')
+gowalla.load(dataset_file)
 dataset = gowalla.poi_dataset(seq_length, user_length, Split.TRAIN, Usage.MAX_SEQ_LENGTH)
 dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.MAX_SEQ_LENGTH)
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
 dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
 
 # setup trainer
-trainer.prepare(gowalla.locations(), hidden_size, device)
-    
+trainer.prepare(gowalla.locations(), user_count, hidden_size, device)
 
 optimizer = torch.optim.Adam(trainer.parameters(), lr = lr, weight_decay = weight_decay)
 #optimizer = torch.optim.SGD(model.parameters(), lr = lr, momentum = 0.8)
@@ -93,9 +94,10 @@ def evaluate_test():
             
             # squeeze for reasons of "loader-batch-size-is-1"
             x = x.squeeze().to(device)
+            active_users = active_users.to(device)
             y = y.squeeze()
         
-            out, h = trainer.evaluate(x, h)
+            out, h = trainer.evaluate(x, h, active_users)
             
             for j in range(user_length):  
                 # o contains a per user list of votes for all locations for each sequence entry
@@ -197,7 +199,7 @@ def sample(idx):
         
         resets = 0
         
-        for i, (x, y, reset_h, _) in enumerate(dataloader_test):
+        for i, (x, y, reset_h, active_users) in enumerate(dataloader_test):
             if reset_h[idx]:
                 resets += 1
             
@@ -206,6 +208,7 @@ def sample(idx):
                            
             x = x.squeeze()[:, idx].to(device)
             y = y.squeeze()[:, idx].to(device)
+            active_user = active_users.squeeze()[idx].to(device).view(1,1)
         
             offset = 1
             test_input = x[:offset].view(offset, 1)
@@ -213,7 +216,7 @@ def sample(idx):
             for i in range(seq_length):
                 #y_ts, h = model(test_input, h)
                 
-                out, h = trainer.evaluate(test_input, h)
+                out, h = trainer.evaluate(test_input, h, active_user)
                 
                 #if use_cross_entropy:
                 #    probs = y_ts[-1].transpose(0, 1)
@@ -260,7 +263,7 @@ for e in range(epochs):
         y = y.squeeze().to(device)
         
         optimizer.zero_grad()
-        loss, h = trainer.loss(x, y, h)
+        loss, h = trainer.loss(x, y, h, active_users)
         loss.backward(retain_graph=True) # backpropagate through time to adjust the weights and find the gradients of the loss function
         latest_loss = loss.item()        
         optimizer.step()
