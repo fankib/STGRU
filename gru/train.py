@@ -262,6 +262,7 @@ for e in range(epochs):
         #x = x.view(100, batch_size)
         x = x.squeeze().to(device)
         y = y.squeeze().to(device)
+        active_users = active_users.to(device)
         
         optimizer.zero_grad()
         loss, h = trainer.loss(x, y, h, active_users)
