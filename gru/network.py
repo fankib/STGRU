@@ -84,8 +84,7 @@ class RNN_cls_user(nn.Module):
         p_u = self.user_encoder(active_user)
         p_u = p_u.view(user_len, self.hidden_size)
         # boradcast on sequence (concat user embeddings):
-        #out_pu = torch.zeros(seq_len, user_len, 2*self.hidden_size, device=x.device)
-        out_pu = torch.zeros(seq_len, user_len, 2*self.hidden_size)
+        out_pu = torch.zeros(seq_len, user_len, 2*self.hidden_size, device=x.device)
         for i in range(seq_len):
             out_pu[i] = torch.cat([out[i], p_u], dim=1)
         y_linear = self.fc(out_pu)        
