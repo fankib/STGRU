@@ -37,15 +37,15 @@ class BprTrainer(Trainer):
     
     def greeter(self):
         if not self.use_user_embedding:
-            return 'Use BPR training'
-        return 'Use BPR training with user embeddings'
+            return 'Use BPR training.'
+        return 'Use BPR training with user embeddings.'
     
-    def prepare(self, loc_count, user_count, hidden_size, device):
+    def prepare(self, loc_count, user_count, hidden_size, gru_factory, device):
         self.hidden_size = hidden_size
         if self.use_user_embedding:
-            self.model = RNN_user(loc_count, user_count, hidden_size).to(device)
+            self.model = RNN_user(loc_count, user_count, hidden_size, gru_factory).to(device)
         else:
-            self.model = RNN(loc_count, hidden_size).to(device)
+            self.model = RNN(loc_count, hidden_size, gru_factory).to(device)
     
     def evaluate(self, x, h, active_users):
         seq_length = x.shape[0]
@@ -83,16 +83,16 @@ class CrossEntropyTrainer(Trainer):
     
     def greeter(self):
         if not self.use_user_embedding:
-            return 'Use Cross Entropy training'
-        return 'Use Cross Entropy training with user embeddings'
+            return 'Use Cross Entropy training.'
+        return 'Use Cross Entropy training with user embeddings.'
     
-    def prepare(self, loc_count, user_count, hidden_size, device):
+    def prepare(self, loc_count, user_count, hidden_size, gru_factory, device):
         self.loc_count = loc_count
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         if self.use_user_embedding:
-            self.model = RNN_cls_user(loc_count, user_count, hidden_size).to(device)
+            self.model = RNN_cls_user(loc_count, user_count, hidden_size, gru_factory).to(device)
         else:
-            self.model = RNN_cls(loc_count, hidden_size).to(device)
+            self.model = RNN_cls(loc_count, hidden_size, gru_factory).to(device)
     
     def evaluate(self, x, h, active_users):
         out, h = self.model(x, h, active_users)

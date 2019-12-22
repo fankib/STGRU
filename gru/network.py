@@ -1,17 +1,51 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from enum import Enum
+
+from gru import OwnGRU
+
+class GRU(Enum):
+    PYTORCH_GRU = 0
+    OWN_GRU = 1
+    
+    @staticmethod
+    def from_string(name):
+        if name == 'pytorch':
+            return GRU.PYTORCH_GRU
+        if name == 'own':
+            return GRU.OWN_GRU
+        raise ValueError('{} not supported'.format(name))
+        
+
+class GruFactory():
+    
+    def __init__(self, gru_type_str):
+        self.gru_type = GRU.from_string(gru_type_str)
+        
+    def greeter(self):
+        if self.gru_type == GRU.PYTORCH_GRU:
+            return 'Use pytorch GRU implementation.'
+        if self.gru_type == GRU.OWN_GRU:
+            return 'Use *own* GRU implementation.'
+        
+    def create(self, hidden_size):
+        if self.gru_type == GRU.PYTORCH_GRU:
+            return nn.GRU(hidden_size, hidden_size)
+        if self.gru_type == GRU.OWN_GRU:
+            return OwnGRU(hidden_size)
+        
 
 class RNN(nn.Module):
     ''' GRU based RNN, using embeddings and one linear output layer '''
     
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size, hidden_size, gru_factory):
         super(RNN, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
 
         self.encoder = nn.Embedding(input_size, hidden_size)
-        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.gru = gru_factory.create(hidden_size)
         self.fc = nn.Linear(hidden_size, hidden_size)
 
     def forward(self, x, h, active_user):
@@ -24,7 +58,7 @@ class RNN(nn.Module):
 class RNN_user(nn.Module):
     ''' GRU based RNN, with user embeddings and one linear output layer '''
     
-    def __init__(self, input_size, user_count, hidden_size):
+    def __init__(self, input_size, user_count, hidden_size, gru_factory):
         super(RNN_user, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -32,7 +66,7 @@ class RNN_user(nn.Module):
 
         self.encoder = nn.Embedding(input_size, hidden_size)
         self.user_encoder = nn.Embedding(user_count, hidden_size)
-        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.gru = gru_factory.create(hidden_size)
         self.fc = nn.Linear(hidden_size, hidden_size)
 
     def forward(self, x, h, active_user):
@@ -47,13 +81,13 @@ class RNN_user(nn.Module):
 class RNN_cls(nn.Module):
     ''' GRU based RNN used for cross entropy loss, using embeddings and one linear output layer '''
     
-    def __init__(self, input_size, hidden_size):
+    def __init__(self, input_size, hidden_size, gru_factory):
         super(RNN_cls, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
 
         self.encoder = nn.Embedding(input_size, hidden_size)
-        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.gru = gru_factory.create(hidden_size)
         self.fc = nn.Linear(hidden_size, input_size) # create outputs in lenght of locations
 
     def forward(self, x, h, active_user):
@@ -66,7 +100,7 @@ class RNN_cls(nn.Module):
 class RNN_cls_user(nn.Module):
     ''' GRU based RNN used for cross entropy loss with user embeddings '''
     
-    def __init__(self, input_size, user_count, hidden_size):
+    def __init__(self, input_size, user_count, hidden_size, gru_factory):
         super(RNN_cls_user, self).__init__()
         self.input_size = input_size
         self.hidden_size = hidden_size
@@ -74,7 +108,7 @@ class RNN_cls_user(nn.Module):
 
         self.encoder = nn.Embedding(input_size, hidden_size)
         self.user_encoder = nn.Embedding(user_count, hidden_size)
-        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.gru = gru_factory.create(hidden_size)
         self.fc = nn.Linear(2*hidden_size, input_size) # create outputs in lenght of locations
 
     def forward(self, x, h, active_user):

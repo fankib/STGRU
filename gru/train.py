@@ -9,6 +9,7 @@ import time
 from dataloader import GowallaLoader, Split, Usage
 from torch.utils.data import DataLoader
 from trainer import BprTrainer, CrossEntropyTrainer
+from network import GRU, GruFactory
 
 ### command line parameters ###
 parser = argparse.ArgumentParser()
@@ -28,6 +29,7 @@ parser.add_argument('--cross-entropy', default=False, const=True, nargs='?', typ
 parser.add_argument('--skip-sanity', default=False, const=True, nargs='?', type=bool, help='skip sanity tests')
 parser.add_argument('--user-embedding', default=False, const=True, nargs='?', type=bool, help='activate user embeddings')
 parser.add_argument('--dataset', default='loc-gowalla_totalCheckins.txt', type=str, help='the dataset under ../../dataset/<dataset.txt> to load')
+parser.add_argument('--gru', default='pytorch', type=str, help='the GRU implementation to use: [pytorch|own]')
 args = parser.parse_args()
 
 ###### parameters ######
@@ -42,6 +44,7 @@ use_cross_entropy = args.cross_entropy
 skip_sanity = args.skip_sanity
 use_user_embedding = args.user_embedding
 dataset_file = '../../dataset/{}'.format(args.dataset)
+gru_factory = GruFactory(args.gru)
 ########################
 
 ### CUDA Setup ###
@@ -49,17 +52,18 @@ device = torch.device('cpu') if args.gpu == -1 else torch.device('cuda', args.gp
 print('use', device)
 
 trainer = CrossEntropyTrainer(use_user_embedding) if use_cross_entropy else BprTrainer(use_user_embedding)
-print(trainer.greeter())
+print('{} {}'.format(trainer.greeter(), gru_factory.greeter()))
 
 gowalla = GowallaLoader(user_count, args.min_checkins)
 gowalla.load(dataset_file)
 dataset = gowalla.poi_dataset(seq_length, user_length, Split.TRAIN, Usage.MAX_SEQ_LENGTH)
 dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.MAX_SEQ_LENGTH)
+#dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TRAIN, Usage.MIN_SEQ_LENGTH) # DEBUG-ONLY! converge on train
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
 dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
 
 # setup trainer
-trainer.prepare(gowalla.locations(), user_count, hidden_size, device)
+trainer.prepare(gowalla.locations(), user_count, hidden_size, gru_factory, device)
 
 optimizer = torch.optim.Adam(trainer.parameters(), lr = lr, weight_decay = weight_decay)
 #optimizer = torch.optim.SGD(model.parameters(), lr = lr, momentum = 0.8)
@@ -238,7 +242,7 @@ print('~~~ train ~~~', train_seqs)
 print('~~~ test ~~~', test_seqs)
 
 # try before train
-if not skip_sanity:
+if not skip_sanity and False:
     sample(sample_user_id)
     evaluate_test()
 
