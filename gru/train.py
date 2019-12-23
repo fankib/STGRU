@@ -10,6 +10,7 @@ from dataloader import GowallaLoader, Split, Usage
 from torch.utils.data import DataLoader
 from trainer import BprTrainer, CrossEntropyTrainer
 from network import GRU, GruFactory
+from h_strategy import ZeroStrategy, FixNoiseStrategy, PersistUserStateStrategy, h_strategy_from_string
 
 ### command line parameters ###
 parser = argparse.ArgumentParser()
@@ -30,6 +31,7 @@ parser.add_argument('--skip-sanity', default=False, const=True, nargs='?', type=
 parser.add_argument('--user-embedding', default=False, const=True, nargs='?', type=bool, help='activate user embeddings')
 parser.add_argument('--dataset', default='loc-gowalla_totalCheckins.txt', type=str, help='the dataset under ../../dataset/<dataset.txt> to load')
 parser.add_argument('--gru', default='pytorch', type=str, help='the GRU implementation to use: [pytorch|own]')
+parser.add_argument('--h0', default='fixnoise', type=str, help='h0 strategy to use: [zero|fixnoise|zero-persist|fixnoise-persist], zero: use zero vector, fixnoise: use normal noise, -persist: propagate latest train state to test')
 args = parser.parse_args()
 
 ###### parameters ######
@@ -45,6 +47,8 @@ skip_sanity = args.skip_sanity
 use_user_embedding = args.user_embedding
 dataset_file = '../../dataset/{}'.format(args.dataset)
 gru_factory = GruFactory(args.gru)
+#h0_strategy = PersistUserStateStrategy(hidden_size, user_count, FixNoiseStrategy(hidden_size))
+h0_strategy = h_strategy_from_string(args.h0, hidden_size, user_count)
 ########################
 
 ### CUDA Setup ###
@@ -70,7 +74,7 @@ optimizer = torch.optim.Adam(trainer.parameters(), lr = lr, weight_decay = weigh
 
 def evaluate_test():
     dataset_test.reset()
-    h = torch.zeros(1, user_length, hidden_size).to(device)
+    h = h0_strategy.on_init(user_length).to(device)
     
     with torch.no_grad():        
         iter_cnt = 0
@@ -90,7 +94,7 @@ def evaluate_test():
             active_users = active_users.squeeze()
             for j, reset in enumerate(reset_h):
                 if reset:
-                    h[0, j] = torch.zeros(hidden_size)
+                    h[0, j] = h0_strategy.on_reset_test(active_users[j])
                     reset_count[active_users[j]] += 1
             
             if i % 10 == 0:
@@ -199,7 +203,7 @@ def sample(idx):
     dataset_test.reset()
    
     with torch.no_grad(): 
-        h = torch.zeros(1, 1, hidden_size).to(device)
+        h = h0_strategy.on_reset_test(idx).view(1, 1, hidden_size).to(device)
         
         resets = 0
         
@@ -242,19 +246,19 @@ print('~~~ train ~~~', train_seqs)
 print('~~~ test ~~~', test_seqs)
 
 # try before train
-if not skip_sanity and False:
+if not skip_sanity:
     sample(sample_user_id)
     evaluate_test()
 
 # train!
 for e in range(epochs):
-    h = torch.zeros(1, user_length, hidden_size).to(device)
+    h = h0_strategy.on_init(user_length).to(device)
     
     dataset.shuffle_users() # shuffle users before each epoch!
     for i, (x, times, coords, y, reset_h, active_users) in enumerate(dataloader):
         for j, reset in enumerate(reset_h):
             if reset:
-                h[0, j] = torch.zeros(hidden_size)
+                h[0, j] = h0_strategy.on_reset(active_users[0][j])
         
         #if i % 100 == 0:
         #    print('active on batch', i, active_users[0])
@@ -273,6 +277,9 @@ for e in range(epochs):
         loss.backward(retain_graph=True) # backpropagate through time to adjust the weights and find the gradients of the loss function
         latest_loss = loss.item()        
         optimizer.step()
+        
+        # persist state for test
+        h0_strategy.persist_state(h, active_users[0])
         
     # statistics:
     if (e+1) % 1 == 0:
