@@ -2,6 +2,7 @@ import torch
 from torch.utils.data import Dataset
 from enum import Enum
 import random
+from datetime import datetime
 
 class Split(Enum):
     TRAIN = 0
@@ -45,11 +46,15 @@ class PoiDataset(Dataset):
             self.active_users.append(self.user_permutation[i]) 
             self.active_user_seq.append(0)
     
-    def __init__(self, users, locs, seq_length, user_length, split, usage, loc_count, custom_seq_count):
+    def __init__(self, users, times, coords, locs, seq_length, user_length, split, usage, loc_count, custom_seq_count):
         self.users = users
+        self.times = times
+        self.coords = coords
         self.locs = locs
         self.labels = []
         self.sequences = []
+        self.sequences_times = []
+        self.sequences_coords = []
         self.sequences_labels = []
         self.sequences_count = []
         self.Ps = []
@@ -90,14 +95,21 @@ class PoiDataset(Dataset):
         for i, loc in enumerate(locs):
             self.locs[i] = loc[:-1]
             self.labels.append(loc[1:])
+            # adapt time and coords:
+            self.times[i] = self.times[i][:-1]
+            self.coords[i] = self.coords[i][:-1]
         
         # split to training / test phase:
-        for i, (loc, label) in enumerate(zip(self.locs, self.labels)):
+        for i, (time, coord, loc, label) in enumerate(zip(self.times, self.coords, self.locs, self.labels)):
             train_thr = int(len(loc) * 0.8)
             if (split == Split.TRAIN):
+                self.times[i] = time[:train_thr]
+                self.coords[i] = coord[:train_thr]
                 self.locs[i] = loc[:train_thr]
-                self.labels[i] = label[:train_thr]
+                self.labels[i] = label[:train_thr]                
             if (split == Split.TEST):
+                self.times[i] = time[train_thr:]
+                self.coords[i] = coord[train_thr:]
                 self.locs[i] = loc[train_thr:]
                 self.labels[i] = label[train_thr:]
             if (split == Split.USE_ALL):
@@ -107,17 +119,23 @@ class PoiDataset(Dataset):
         self.max_seq_count = 0
         self.min_seq_count = 10000000
         self.capacity = 0
-        for i, (loc, label) in enumerate(zip(self.locs, self.labels)):
+        for i, (time, coord, loc, label) in enumerate(zip(self.times, self.coords, self.locs, self.labels)):
             seq_count = len(loc) // seq_length
             assert seq_count > 0 # fix seq_length and min-checkins in order to have test sequences in a 80/20 split!
             seqs = []
+            seq_times = []
+            seq_coords = []
             seq_lbls = []
             for j in range(seq_count):
                 start = j * seq_length
                 end = (j+1) * seq_length
                 seqs.append(loc[start:end])
+                seq_times.append(time[start:end])
+                seq_coords.append(coord[start:end])
                 seq_lbls.append(label[start:end])
             self.sequences.append(seqs)
+            self.sequences_times.append(seq_times)
+            self.sequences_coords.append(seq_coords)            
             self.sequences_labels.append(seq_lbls)
             self.sequences_count.append(seq_count)
             self.capacity += seq_count
@@ -150,6 +168,8 @@ class PoiDataset(Dataset):
     
     def __getitem__(self, idx):
         seqs = []
+        times = []
+        coords = []
         lbls = []
         reset_h = []
         for i in range(self.user_length):
@@ -173,6 +193,8 @@ class PoiDataset(Dataset):
             # use this user:
             reset_h.append(j == 0)
             seqs.append(torch.tensor(self.sequences[i_user][j]))
+            times.append(torch.tensor(self.sequences_times[i_user][j]))
+            coords.append(torch.tensor(self.sequences_coords[i_user][j]))
             lbls.append(torch.tensor(self.sequences_labels[i_user][j]))
             self.active_user_seq[i] += 1
         
@@ -190,7 +212,7 @@ class PoiDataset(Dataset):
             P[i, l] = 1
             poi2id[l] = i'''
             
-        return torch.stack(seqs, dim=1), torch.stack(lbls, dim=1), reset_h, torch.tensor(self.active_users) #, P, poi2id
+        return torch.stack(seqs, dim=1), torch.stack(times, dim=1), torch.stack(coords, dim=1), torch.stack(lbls, dim=1), reset_h, torch.tensor(self.active_users) #, P, poi2id
         #for i in range(len(self.users)):
         #    j = idx % self.sequences_count[i]
         #    reset_h.append(j == 0)
@@ -209,10 +231,12 @@ class GowallaLoader():
         self.poi2id = {}
         
         self.users = []
+        self.times = []
+        self.coords = []
         self.locs = []
     
     def poi_dataset(self, seq_length, user_length, split, usage, custom_seq_count = 1):
-        dataset = PoiDataset(self.users.copy(), self.locs.copy(), seq_length, user_length, split, usage, len(self.poi2id), custom_seq_count) # crop latest in time
+        dataset = PoiDataset(self.users.copy(), self.times.copy(), self.coords.copy(), self.locs.copy(), seq_length, user_length, split, usage, len(self.poi2id), custom_seq_count) # crop latest in time
         return dataset
     
     def locations(self):
@@ -248,6 +272,8 @@ class GowallaLoader():
         lines = f.readlines()
         
         # store location ids
+        user_time = []
+        user_coord = []
         user_loc = []
         
         prev_user = int(lines[0].split('\t')[0])
@@ -258,6 +284,13 @@ class GowallaLoader():
             if self.user2id.get(user) is None:
                 continue # user is not of interrest
             user = self.user2id.get(user)
+            
+            #time = (datetime.strptime(tokens[1], "%Y-%m-%dT%H:%M:%SZ")-datetime(2009,1,1)).total_seconds() / 60  # minutes since 1.1.2009
+            time = (datetime.strptime(tokens[1], "%Y-%m-%dT%H:%M:%SZ") - datetime(1970, 1, 1)).total_seconds() # unix seconds
+            lat = float(tokens[2]) # WGS84? Latitude
+            long = float(tokens[3]) # WGS84? Longitude
+            coord = (lat, long)
+            #coord = WGS84_to_R3(lati, longi)
 
             location = int(tokens[4]) # location nr
             if self.poi2id.get(location) is None: # get-or-set locations
@@ -266,13 +299,23 @@ class GowallaLoader():
     
             if user == prev_user:
                 # insert in front!
+                user_time.insert(0, time)
+                user_coord.insert(0, coord)
                 user_loc.insert(0, location)
             else:
                 self.users.append(prev_user)
+                self.times.append(user_time)
+                self.coords.append(user_coord)
                 self.locs.append(user_loc)
-                prev_user = user
-                user_loc = [location] # resart
+                
+                # resart:
+                prev_user = user 
+                user_time = [time]
+                user_coord = [coord]
+                user_loc = [location] 
                 
         # process also the latest user in the for loop
         self.users.append(prev_user)
+        self.times.append(user_time)
+        self.coords.append(user_coord)
         self.locs.append(user_loc)

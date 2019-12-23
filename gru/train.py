@@ -86,7 +86,7 @@ def evaluate_test():
         u_average_precision = np.zeros(args.users)        
         reset_count = torch.zeros(user_count)
         
-        for i, (x, y, reset_h, active_users) in enumerate(dataloader_test):
+        for i, (x, times, coords, y, reset_h, active_users) in enumerate(dataloader_test):
             active_users = active_users.squeeze()
             for j, reset in enumerate(reset_h):
                 if reset:
@@ -203,7 +203,7 @@ def sample(idx):
         
         resets = 0
         
-        for i, (x, y, reset_h, active_users) in enumerate(dataloader_test):
+        for i, (x, times, coords, y, reset_h, active_users) in enumerate(dataloader_test):
             if reset_h[idx]:
                 resets += 1
             
@@ -251,7 +251,7 @@ for e in range(epochs):
     h = torch.zeros(1, user_length, hidden_size).to(device)
     
     dataset.shuffle_users() # shuffle users before each epoch!
-    for i, (x, y, reset_h, active_users) in enumerate(dataloader):
+    for i, (x, times, coords, y, reset_h, active_users) in enumerate(dataloader):
         for j, reset in enumerate(reset_h):
             if reset:
                 h[0, j] = torch.zeros(hidden_size)
