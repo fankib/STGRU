@@ -239,7 +239,7 @@ def sample(idx):
                 test_input = y[offset+i-1].view(1, 1)
 
 # test user idx
-sample_user_id = 2
+sample_user_id = 0
 train_seqs = dataset.sequences_by_user(sample_user_id)
 test_seqs = dataset_test.sequences_by_user(sample_user_id)
 print('~~~ train ~~~', train_seqs)

@@ -8,6 +8,7 @@ from gru import OwnGRU
 class GRU(Enum):
     PYTORCH_GRU = 0
     OWN_GRU = 1
+    LSTM = 2
     
     @staticmethod
     def from_string(name):
@@ -15,6 +16,8 @@ class GRU(Enum):
             return GRU.PYTORCH_GRU
         if name == 'own':
             return GRU.OWN_GRU
+        if name == 'lstm':
+            return GRU.LSTM
         raise ValueError('{} not supported'.format(name))
         
 
@@ -28,12 +31,17 @@ class GruFactory():
             return 'Use pytorch GRU implementation.'
         if self.gru_type == GRU.OWN_GRU:
             return 'Use *own* GRU implementation.'
+        if self.gru_type == GRU.LSTM:
+            return 'Use pytorch LSTM implementation.'
         
     def create(self, hidden_size):
         if self.gru_type == GRU.PYTORCH_GRU:
             return nn.GRU(hidden_size, hidden_size)
         if self.gru_type == GRU.OWN_GRU:
             return OwnGRU(hidden_size)
+        if self.gru_type == GRU.LSTM:
+            raise Exception('not yet implemented')
+            #return nn.LSTM(hidden_size, hidden_size)
         
 
 class RNN(nn.Module):
@@ -52,6 +60,7 @@ class RNN(nn.Module):
         seq_len, user_len = x.size()
         x_emb = self.encoder(x)
         out, h = self.gru(x_emb, h)
+        #out, (h, c) = self.gru(x_emb) # lstm hack
         y_linear = self.fc(out)
         return y_linear, h
     
