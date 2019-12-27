@@ -2,7 +2,7 @@
 import torch
 from torch import nn
 
-from network import RNN, RNN_user, RNN_cls, RNN_cls_user
+from network import RNN, RNN_user, RNN_cls, RNN_cls_user, RNN_cls_attention
 
 class Trainer():
     
@@ -17,14 +17,14 @@ class Trainer():
     def parameters(self):
         return self.model.parameters()
     
-    def evaluate(self, x, h, active_users):
+    def evaluate(self, x, times, y_times, h, active_users):
         ''' takes a sequence x (sequence x users x hidden)
         then does the magic and returns a list of user x locations x sequnce
         describing the probabilities in a per user way
         '''
         pass
     
-    def loss(self, x, y, h, active_users):
+    def loss(self, x, y, times, y_times, h, active_users):
         ''' takes a sequence x (sequence x users x hidden)
         and corresponding labels (location_id) to
         compute the training loss '''
@@ -47,7 +47,7 @@ class BprTrainer(Trainer):
         else:
             self.model = RNN(loc_count, hidden_size, gru_factory).to(device)
     
-    def evaluate(self, x, h, active_users):
+    def evaluate(self, x, times, y_times, h, active_users):
         seq_length = x.shape[0]
         user_length = x.shape[1]
         out, h = self.model(x, h, active_users)
@@ -62,7 +62,7 @@ class BprTrainer(Trainer):
             response.append(o)
         return response, h
 
-    def loss(self, x, y, h, active_users):
+    def loss(self, x, y, times, y_times, h, active_users):
         out, h = self.model(x, h, active_users)
         y_emb = self.model.encoder(y)
         
@@ -92,15 +92,21 @@ class CrossEntropyTrainer(Trainer):
         if self.use_user_embedding:
             self.model = RNN_cls_user(loc_count, user_count, hidden_size, gru_factory).to(device)
         else:
-            self.model = RNN_cls(loc_count, hidden_size, gru_factory).to(device)
+            #self.model = RNN_cls(loc_count, hidden_size, gru_factory).to(device)
+            self.model = RNN_cls_attention(loc_count, hidden_size, gru_factory).to(device)
     
-    def evaluate(self, x, h, active_users):
-        out, h = self.model(x, h, active_users)
+    def evaluate(self, x, times, y_times, h, active_users):
+        delta_t = (y_times[-1] - times)
+        out, h = self.model(x, delta_t, h, active_users)
         out_t = out.transpose(0, 1)
         return out_t, h # model output is directly associated with the ranking per location.
     
-    def loss(self, x, y, h, active_users):
-        out, h = self.model(x, h, active_users)
+    def loss(self, x, y, times, y_times, h, active_users):
+        delta_t = (y_times[-1] - times)
+        out, h = self.model(x, delta_t, h, active_users)
+        seq_len, _, _ = out.shape
+        out = out[seq_len-1, :, :] # use only latest in seq len
+        y = y[seq_len-1, :]
         out = out.view(-1, self.loc_count)
         y = y.view(-1)
         l = self.cross_entropy_loss(out, y)

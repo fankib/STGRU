@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from enum import Enum
+import numpy as np
 
 from gru import OwnGRU
 
@@ -99,9 +100,47 @@ class RNN_cls(nn.Module):
         self.gru = gru_factory.create(hidden_size)
         self.fc = nn.Linear(hidden_size, input_size) # create outputs in lenght of locations
 
-    def forward(self, x, h, active_user):
+    def forward(self, x, delta_t, h, active_user):
         seq_len, user_len = x.size()
         x_emb = self.encoder(x)
+        out, h = self.gru(x_emb, h)
+        y_linear = self.fc(out)
+        return y_linear, h
+
+class RNN_cls_attention(nn.Module):
+    ''' GRU based RNN used for cross entropy loss, using embeddings and one linear output layer '''
+    
+    def __init__(self, input_size, hidden_size, gru_factory):
+        super(RNN_cls_attention, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+
+        self.encoder = nn.Embedding(input_size, hidden_size)
+        self.gru = gru_factory.create(hidden_size)
+        self.fc = nn.Linear(hidden_size, input_size) # create outputs in lenght of locations
+        
+        
+        self.fc_a0 = nn.Linear(2, 2)
+        
+        self.fc_a = nn.Linear(2, 1)
+        self.fc_a.weight.data[0] +=1.
+        self.fc_a.bias.data[0] -= 1.
+        self.sigmoid = nn.Sigmoid()
+        self.relu = nn.ReLU()
+
+    def forward(self, x, delta_t, h, active_user):
+        seq_len, user_len = x.size()
+        # learn attention:
+        delta_t = delta_t.unsqueeze(2)
+        t_1 = torch.cos(delta_t * 2*np.pi / 86400) # your daily cos
+        t_2 = torch.sin(delta_t * 2*np.pi / 86400) # your daily sin
+        t = torch.cat([t_1, t_2], dim=2)
+        a0 = self.fc_a0(t)
+        a0 = self.relu(a0)
+        #a0 = a0 * a0
+        a = 1. - self.sigmoid(self.fc_a(a0))
+        x_emb = self.encoder(x)
+        x_emb = a*x_emb
         out, h = self.gru(x_emb, h)
         y_linear = self.fc(out)
         return y_linear, h

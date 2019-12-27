@@ -10,8 +10,11 @@ class TestGowallaLoader(unittest.TestCase):
         loader.load('../../dataset/small-10000.txt')
         dataset = loader.poi_dataset(5, 10, Split.TEST, Usage.MAX_SEQ_LENGTH)
         self.assertEqual(84, len(dataset))
-        x, times, coords, y = dataset.__getitem__(0)
+        x, times, coords, y, y_times, reset_h, active_users = dataset.__getitem__(0)
         self.assertEqual(5, len(x))
+        delta_t = (y_times - times)
+        print(delta_t)
+        self.assertEquals(1, delta_t)
  
     def test_load(self):
         loader = GowallaLoader(10, 201)

@@ -15,9 +15,9 @@ from h_strategy import ZeroStrategy, FixNoiseStrategy, PersistUserStateStrategy,
 ### command line parameters ###
 parser = argparse.ArgumentParser()
 parser.add_argument('--gpu', default=-1, type=int, help='the gpu to use')
-parser.add_argument('--users', default=6, type=int, help='users to process')
-parser.add_argument('--dims', default=7, type=int, help='hidden dimensions to use')
-parser.add_argument('--seq-length', default=10, type=int, help='seq-length to process in one pass (batching)')
+parser.add_argument('--users', default=12, type=int, help='users to process')
+parser.add_argument('--dims', default=10, type=int, help='hidden dimensions to use')
+parser.add_argument('--seq-length', default=5, type=int, help='seq-length to process in one pass (batching)')
 parser.add_argument('--user-length', default=3, type=int, help='user-length to process in one pass (batching)')
 parser.add_argument('--min-checkins', default=101, type=int, help='amount of checkins required')
 parser.add_argument('--validate-on-latest', default=False, const=True, nargs='?', type=bool, help='use only latest sequence sample to validate')
@@ -76,6 +76,9 @@ def evaluate_test():
     dataset_test.reset()
     h = h0_strategy.on_init(user_length).to(device)
     
+    # print attention:
+    print('attention', trainer.model.fc_a.weight, trainer.model.fc_a.bias)
+    
     with torch.no_grad():        
         iter_cnt = 0
         recall1 = 0
@@ -90,7 +93,7 @@ def evaluate_test():
         u_average_precision = np.zeros(args.users)        
         reset_count = torch.zeros(user_count)
         
-        for i, (x, times, coords, y, reset_h, active_users) in enumerate(dataloader_test):
+        for i, (x, times, coords, y, y_times, reset_h, active_users) in enumerate(dataloader_test):
             active_users = active_users.squeeze()
             for j, reset in enumerate(reset_h):
                 if reset:
@@ -102,10 +105,13 @@ def evaluate_test():
             
             # squeeze for reasons of "loader-batch-size-is-1"
             x = x.squeeze().to(device)
-            active_users = active_users.to(device)
             y = y.squeeze()
+            times = times.squeeze().to(device)
+            y_times = y_times.squeeze().to(device)
+            active_users = active_users.to(device)
+            
         
-            out, h = trainer.evaluate(x, h, active_users)
+            out, h = trainer.evaluate(x, times, y_times, h, active_users)
             
             for j in range(user_length):  
                 # o contains a per user list of votes for all locations for each sequence entry
@@ -121,6 +127,9 @@ def evaluate_test():
                             continue
                         
                         if args.validate_on_latest and (i+1) % seq_length != 0:
+                            continue
+                        
+                        if k < len(y_j)-1:
                             continue
 
                         r_kj = o[k, :].cpu().numpy()
@@ -207,7 +216,7 @@ def sample(idx):
         
         resets = 0
         
-        for i, (x, times, coords, y, reset_h, active_users) in enumerate(dataloader_test):
+        for i, (x, times, coords, y, y_times, reset_h, active_users) in enumerate(dataloader_test):
             if reset_h[idx]:
                 resets += 1
             
@@ -216,15 +225,19 @@ def sample(idx):
                            
             x = x.squeeze()[:, idx].to(device)
             y = y.squeeze()[:, idx].to(device)
+            times = times.squeeze()[:, idx].to(device)
+            y_times = y_times.squeeze()[:, idx].to(device)
             active_user = active_users.squeeze()[idx].to(device).view(1,1)
         
             offset = 1
             test_input = x[:offset].view(offset, 1)
+            test_times = times[:offset].view(offset, 1)
+            test_y_times = y_times[:offset].view(offset, 1)
     
             for i in range(seq_length):
                 #y_ts, h = model(test_input, h)
                 
-                out, h = trainer.evaluate(test_input, h, active_user)
+                out, h = trainer.evaluate(test_input, test_times, test_y_times, h, active_user)
                 
                 #if use_cross_entropy:
                 #    probs = y_ts[-1].transpose(0, 1)
@@ -237,6 +250,8 @@ def sample(idx):
                 print('in', test_input.item(), 'expected', y[offset+i-1].item(), ': idx-target', np.where(rank == y[offset+i-1].item())[0][0] + 1, 'prediction', rank[:5])
             
                 test_input = y[offset+i-1].view(1, 1)
+                test_times = times[offset+i-1].view(1, 1)
+                test_y_times = y_times[offset+i-1].view(1, 1)
 
 # test user idx
 sample_user_id = 0
@@ -255,7 +270,7 @@ for e in range(epochs):
     h = h0_strategy.on_init(user_length).to(device)
     
     dataset.shuffle_users() # shuffle users before each epoch!
-    for i, (x, times, coords, y, reset_h, active_users) in enumerate(dataloader):
+    for i, (x, times, coords, y, y_times, reset_h, active_users) in enumerate(dataloader):
         for j, reset in enumerate(reset_h):
             if reset:
                 h[0, j] = h0_strategy.on_reset(active_users[0][j])
@@ -271,9 +286,11 @@ for e in range(epochs):
         x = x.squeeze().to(device)
         y = y.squeeze().to(device)
         active_users = active_users.to(device)
+        times = times.squeeze().to(device)
+        y_times = times.squeeze().to(device)
         
         optimizer.zero_grad()
-        loss, h = trainer.loss(x, y, h, active_users)
+        loss, h = trainer.loss(x, y, times, y_times, h, active_users)
         loss.backward(retain_graph=True) # backpropagate through time to adjust the weights and find the gradients of the loss function
         latest_loss = loss.item()        
         optimizer.step()
