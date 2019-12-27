@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import numpy as np
 from enum import Enum
 
 from gru import OwnGRU
@@ -131,4 +132,41 @@ class RNN_cls_user(nn.Module):
         for i in range(seq_len):
             out_pu[i] = torch.cat([out[i], p_u], dim=1)
         y_linear = self.fc(out_pu)        
+        return y_linear, h
+
+class RNN_cls_st(nn.Module):
+    ''' GRU based rnn. applies weighted average using spatial and temporal data '''
+    
+    def __init__(self, input_size, hidden_size, f_t, f_s, gru_factory):
+        super(RNN_cls_st, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+        self.f_t = f_t # function for computing temporal weight
+        self.f_s = f_s # function for computing spatial weight
+
+        self.encoder = nn.Embedding(input_size, hidden_size)
+        self.gru = gru_factory.create(hidden_size)
+        self.fc = nn.Linear(hidden_size, input_size) # create outputs in lenght of locations
+
+    def forward(self, x, delta_t, delta_s, h, active_user):
+        seq_len, user_len = x.size()
+        x_emb = self.encoder(x)
+        out, h = self.gru(x_emb, h)
+        
+        # comopute weights per
+        out_w = torch.zeros(seq_len, user_len, self.hidden_size, device=x.device)
+        cummulative_t = torch.zeros(seq_len, user_len, device=x.device)
+        cummulative_s = torch.zeros(seq_len, user_len, device=x.device)
+        for i in range(seq_len):
+            cummulative_t[0:(i+1)] += delta_t[i] 
+            cummulative_s[0:(i+1)] += delta_s[i]
+            for j in range(i+1):
+                a_j = self.f_t(cummulative_t[j], user_len) # (torch.cos(cummulative_t[j]*2*np.pi / 86400) + 1) / 2 #
+                b_j = self.f_s(cummulative_s[j], user_len)
+                a_j = a_j.unsqueeze(1)
+                b_j = b_j.unsqueeze(1)
+                out_w[i] += a_j*b_j*out[j] # could be factored out into a matrix!
+                # Question: normalize a_j s.t. sum(a_j)=1 ???
+        
+        y_linear = self.fc(out_w)
         return y_linear, h

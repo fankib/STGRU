@@ -52,10 +52,14 @@ class PoiDataset(Dataset):
         self.coords = coords
         self.locs = locs
         self.labels = []
+        self.lbl_times = []
+        self.lbl_coords = []
         self.sequences = []
         self.sequences_times = []
         self.sequences_coords = []
         self.sequences_labels = []
+        self.sequences_lbl_times = []
+        self.sequences_lbl_coords = []
         self.sequences_count = []
         self.Ps = []
         self.Qs = torch.zeros(loc_count, 1)
@@ -96,22 +100,28 @@ class PoiDataset(Dataset):
             self.locs[i] = loc[:-1]
             self.labels.append(loc[1:])
             # adapt time and coords:
+            self.lbl_times.append(self.times[i][1:])
+            self.lbl_coords.append(self.coords[i][1:])
             self.times[i] = self.times[i][:-1]
             self.coords[i] = self.coords[i][:-1]
         
         # split to training / test phase:
-        for i, (time, coord, loc, label) in enumerate(zip(self.times, self.coords, self.locs, self.labels)):
+        for i, (time, coord, loc, label, lbl_time, lbl_coord) in enumerate(zip(self.times, self.coords, self.locs, self.labels, self.lbl_times, self.lbl_coords)):
             train_thr = int(len(loc) * 0.8)
             if (split == Split.TRAIN):
                 self.times[i] = time[:train_thr]
                 self.coords[i] = coord[:train_thr]
                 self.locs[i] = loc[:train_thr]
-                self.labels[i] = label[:train_thr]                
+                self.labels[i] = label[:train_thr]
+                self.lbl_times[i] = lbl_time[:train_thr]
+                self.lbl_coords[i] = lbl_coord[:train_thr]
             if (split == Split.TEST):
                 self.times[i] = time[train_thr:]
                 self.coords[i] = coord[train_thr:]
                 self.locs[i] = loc[train_thr:]
                 self.labels[i] = label[train_thr:]
+                self.lbl_times[i] = lbl_time[train_thr:]
+                self.lbl_coords[i] = lbl_coord[train_thr:]
             if (split == Split.USE_ALL):
                 pass # do nothing
             
@@ -119,13 +129,15 @@ class PoiDataset(Dataset):
         self.max_seq_count = 0
         self.min_seq_count = 10000000
         self.capacity = 0
-        for i, (time, coord, loc, label) in enumerate(zip(self.times, self.coords, self.locs, self.labels)):
+        for i, (time, coord, loc, label, lbl_time, lbl_coord) in enumerate(zip(self.times, self.coords, self.locs, self.labels, self.lbl_times, self.lbl_coords)):
             seq_count = len(loc) // seq_length
             assert seq_count > 0 # fix seq_length and min-checkins in order to have test sequences in a 80/20 split!
             seqs = []
             seq_times = []
             seq_coords = []
             seq_lbls = []
+            seq_lbl_times = []
+            seq_lbl_coords = []
             for j in range(seq_count):
                 start = j * seq_length
                 end = (j+1) * seq_length
@@ -133,10 +145,14 @@ class PoiDataset(Dataset):
                 seq_times.append(time[start:end])
                 seq_coords.append(coord[start:end])
                 seq_lbls.append(label[start:end])
+                seq_lbl_times.append(lbl_time[start:end])
+                seq_lbl_coords.append(lbl_coord[start:end])
             self.sequences.append(seqs)
             self.sequences_times.append(seq_times)
             self.sequences_coords.append(seq_coords)            
             self.sequences_labels.append(seq_lbls)
+            self.sequences_lbl_times.append(seq_lbl_times)
+            self.sequences_lbl_coords.append(seq_lbl_coords)
             self.sequences_count.append(seq_count)
             self.capacity += seq_count
             self.max_seq_count = max(self.max_seq_count, seq_count)
@@ -171,6 +187,8 @@ class PoiDataset(Dataset):
         times = []
         coords = []
         lbls = []
+        lbl_times = []
+        lbl_coords = []
         reset_h = []
         for i in range(self.user_length):
             i_user = self.active_users[i]
@@ -196,6 +214,8 @@ class PoiDataset(Dataset):
             times.append(torch.tensor(self.sequences_times[i_user][j]))
             coords.append(torch.tensor(self.sequences_coords[i_user][j]))
             lbls.append(torch.tensor(self.sequences_labels[i_user][j]))
+            lbl_times.append(torch.tensor(self.sequences_lbl_times[i_user][j]))
+            lbl_coords.append(torch.tensor(self.sequences_lbl_coords[i_user][j]))
             self.active_user_seq[i] += 1
         
         #if idx % 10 == 0:
@@ -211,8 +231,13 @@ class PoiDataset(Dataset):
         for i, l in enumerate(active_locs):
             P[i, l] = 1
             poi2id[l] = i'''
-            
-        return torch.stack(seqs, dim=1), torch.stack(times, dim=1), torch.stack(coords, dim=1), torch.stack(lbls, dim=1), reset_h, torch.tensor(self.active_users) #, P, poi2id
+        x = torch.stack(seqs, dim=1)
+        t = torch.stack(times, dim=1)
+        s = torch.stack(coords, dim=1)
+        y = torch.stack(lbls, dim=1)
+        y_t = torch.stack(lbl_times, dim=1)
+        y_s = torch.stack(lbl_coords, dim=1)           
+        return x, t, s, y, y_t, y_s, reset_h, torch.tensor(self.active_users) #, P, poi2id
         #for i in range(len(self.users)):
         #    j = idx % self.sequences_count[i]
         #    reset_h.append(j == 0)

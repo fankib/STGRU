@@ -10,8 +10,10 @@ class TestGowallaLoader(unittest.TestCase):
         loader.load('../../dataset/small-10000.txt')
         dataset = loader.poi_dataset(5, 10, Split.TEST, Usage.MAX_SEQ_LENGTH)
         self.assertEqual(84, len(dataset))
-        x, times, coords, y = dataset.__getitem__(0)
+        x, t, s, y, y_t, y_s, _, _ = dataset.__getitem__(0)
         self.assertEqual(5, len(x))
+        print('temporal differences:', (y_t - t) / 3600)
+        print('spatial differences:', y_s - s)
  
     def test_load(self):
         loader = GowallaLoader(10, 201)

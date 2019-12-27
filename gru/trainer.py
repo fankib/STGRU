@@ -1,8 +1,24 @@
 
 import torch
 from torch import nn
+import numpy as np
 
-from network import RNN, RNN_user, RNN_cls, RNN_cls_user
+from network import RNN, RNN_user, RNN_cls, RNN_cls_user, RNN_cls_st
+
+class TrainerFactory():
+    
+    def create(self, cross_entropy, user_embedding, temporal, spatial):
+        bpr = not cross_entropy
+
+        if bpr:
+            assert not temporal
+            assert not spatial
+            return BprTrainer(user_embedding)
+        if cross_entropy:
+            if not temporal and not spatial:
+                return CrossEntropyTrainer(user_embedding)
+            else:
+                return SpatialTemporalCrossEntropyTrainer(user_embedding, temporal, spatial)
 
 class Trainer():
     
@@ -17,19 +33,25 @@ class Trainer():
     def parameters(self):
         return self.model.parameters()
     
-    def evaluate(self, x, h, active_users):
-        ''' takes a sequence x (sequence x users x hidden)
-        then does the magic and returns a list of user x locations x sequnce
+    def evaluate(self, x, t, s, y_t, y_s, h, active_users):
+        ''' takes a sequence "x" (sequence x users x hidden)
+        then does the magic and returns a list of user x locations x sequence
         describing the probabilities in a per user way
+        t, s are temporal and spatial data related to x
+        y_t, y_s are temporal and spatial data related to y which we will predict
         '''
         pass
     
-    def loss(self, x, y, h, active_users):
-        ''' takes a sequence x (sequence x users x hidden)
+    def loss(self, x, t, s, y, y_t, y_s, h, active_users):
+        ''' takes a sequence "x" (sequence x users x hidden)
         and corresponding labels (location_id) to
         compute the training loss '''
 
     def validate():
+        pass
+    
+    def debug(self):
+        ''' is called after each epoch in order to print debug information '''
         pass
     
 
@@ -47,7 +69,7 @@ class BprTrainer(Trainer):
         else:
             self.model = RNN(loc_count, hidden_size, gru_factory).to(device)
     
-    def evaluate(self, x, h, active_users):
+    def evaluate(self, x, t, s, y_t, y_s, h, active_users):
         seq_length = x.shape[0]
         user_length = x.shape[1]
         out, h = self.model(x, h, active_users)
@@ -62,7 +84,7 @@ class BprTrainer(Trainer):
             response.append(o)
         return response, h
 
-    def loss(self, x, y, h, active_users):
+    def loss(self, x, t, s, y, y_t, y_s, h, active_users):
         out, h = self.model(x, h, active_users)
         y_emb = self.model.encoder(y)
         
@@ -94,13 +116,72 @@ class CrossEntropyTrainer(Trainer):
         else:
             self.model = RNN_cls(loc_count, hidden_size, gru_factory).to(device)
     
-    def evaluate(self, x, h, active_users):
+    def evaluate(self, x, t, s, y_t, y_s, h, active_users):
         out, h = self.model(x, h, active_users)
         out_t = out.transpose(0, 1)
         return out_t, h # model output is directly associated with the ranking per location.
     
-    def loss(self, x, y, h, active_users):
+    def loss(self, x, t, s, y, y_t, y_s, h, active_users):
         out, h = self.model(x, h, active_users)
+        out = out.view(-1, self.loc_count)
+        y = y.view(-1)
+        l = self.cross_entropy_loss(out, y)
+        return l, h
+
+class SpatialTemporalCrossEntropyTrainer(Trainer):
+    
+    def __init__(self, use_user_embedding, use_temporal, use_spatial):
+        super(SpatialTemporalCrossEntropyTrainer, self).__init__(use_user_embedding)
+        self.use_temporal = use_temporal
+        self.use_spatial = use_spatial
+    
+    def greeter(self):
+        if not self.use_user_embedding:
+            if self.use_temporal and not self.use_spatial:
+                return 'Use Temporal Cross Entropy training.'
+            if self.use_spatial and not self.use_temporal:
+                return 'Use Spatial Cross Entropy training.'
+            return 'Use Spatial and Temporal Cross Entropy training.'
+        raise Exception('not yet supported')
+        return 'Use Cross Entropy training with user embeddings.'
+    
+    def debug(self):
+        pass
+    
+    def parameters(self):
+        #return list(self.model.parameters()) + list([self.a, self.b]) 
+        return self.model.parameters()
+    
+    def prepare(self, loc_count, user_count, hidden_size, gru_factory, device):
+        if self.use_temporal:
+            f_t = lambda delta_t, user_len: (torch.cos(delta_t*2*np.pi / 86400) + 1) / 2
+        else:
+            f_t = lambda delta_t, user_len: torch.ones(user_len)
+        
+        if self.use_spatial:
+            f_s = lambda delta_s, user_len: torch.exp(-delta_s)
+        else:
+            f_s = lambda delta_s, user_len: torch.ones(user_len)
+        
+        self.loc_count = loc_count
+        self.cross_entropy_loss = nn.CrossEntropyLoss()
+        if self.use_user_embedding:
+            #self.model = RNN_cls_st(loc_count, user_count, hidden_size, gru_factory).to(device)
+            pass
+        else:
+            self.model = RNN_cls_st(loc_count, hidden_size, f_t, f_s, gru_factory).to(device)
+    
+    def evaluate(self, x, t, s, y_t, y_s, h, active_users):
+        delta_t = y_t - t
+        delta_s = torch.norm(y_s - s, dim=-1)        
+        out, h = self.model(x, delta_t, delta_s, h, active_users)
+        out_t = out.transpose(0, 1)
+        return out_t, h # model output is directly associated with the ranking per location.
+    
+    def loss(self, x, t, s, y, y_t, y_s, h, active_users):
+        delta_t = y_t - t
+        delta_s = torch.norm(y_s - s, dim=-1)        
+        out, h = self.model(x, delta_t, delta_s, h, active_users)
         out = out.view(-1, self.loc_count)
         y = y.view(-1)
         l = self.cross_entropy_loss(out, y)

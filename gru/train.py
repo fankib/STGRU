@@ -8,7 +8,7 @@ import time
 
 from dataloader import GowallaLoader, Split, Usage
 from torch.utils.data import DataLoader
-from trainer import BprTrainer, CrossEntropyTrainer
+from trainer import TrainerFactory
 from network import GRU, GruFactory
 from h_strategy import ZeroStrategy, FixNoiseStrategy, PersistUserStateStrategy, h_strategy_from_string
 
@@ -29,6 +29,8 @@ parser.add_argument('--epochs', default=1000, type=int, help='amount of epochs')
 parser.add_argument('--cross-entropy', default=False, const=True, nargs='?', type=bool, help='use cross entropy loss instead of BPR loss for training')
 parser.add_argument('--skip-sanity', default=False, const=True, nargs='?', type=bool, help='skip sanity tests')
 parser.add_argument('--user-embedding', default=False, const=True, nargs='?', type=bool, help='activate user embeddings')
+parser.add_argument('--temporal', default=False, const=True, nargs='?', type=bool, help='activate use of temporal data')
+parser.add_argument('--spatial', default=False, const=True, nargs='?', type=bool, help='activate use of spatial data')
 parser.add_argument('--dataset', default='loc-gowalla_totalCheckins.txt', type=str, help='the dataset under ../../dataset/<dataset.txt> to load')
 parser.add_argument('--gru', default='pytorch', type=str, help='the GRU implementation to use: [pytorch|own]')
 parser.add_argument('--h0', default='fixnoise', type=str, help='h0 strategy to use: [zero|fixnoise|zero-persist|fixnoise-persist], zero: use zero vector, fixnoise: use normal noise, -persist: propagate latest train state to test')
@@ -45,6 +47,8 @@ weight_decay = args.regularization
 use_cross_entropy = args.cross_entropy
 skip_sanity = args.skip_sanity
 use_user_embedding = args.user_embedding
+use_temporal = args.temporal
+use_spatial = args.spatial
 dataset_file = '../../dataset/{}'.format(args.dataset)
 gru_factory = GruFactory(args.gru)
 #h0_strategy = PersistUserStateStrategy(hidden_size, user_count, FixNoiseStrategy(hidden_size))
@@ -55,8 +59,10 @@ h0_strategy = h_strategy_from_string(args.h0, hidden_size, user_count)
 device = torch.device('cpu') if args.gpu == -1 else torch.device('cuda', args.gpu)
 print('use', device)
 
-trainer = CrossEntropyTrainer(use_user_embedding) if use_cross_entropy else BprTrainer(use_user_embedding)
-print('{} {}'.format(trainer.greeter(), gru_factory.greeter()))
+trainer_factory = TrainerFactory()
+trainer = trainer_factory.create(use_cross_entropy, use_user_embedding, use_temporal, use_spatial)
+print('{}'.format(trainer.greeter()))
+#print('{} {}'.format(trainer.greeter(), gru_factory.greeter()))
 
 gowalla = GowallaLoader(user_count, args.min_checkins)
 gowalla.load(dataset_file)
@@ -90,7 +96,7 @@ def evaluate_test():
         u_average_precision = np.zeros(args.users)        
         reset_count = torch.zeros(user_count)
         
-        for i, (x, times, coords, y, reset_h, active_users) in enumerate(dataloader_test):
+        for i, (x, t, s, y, y_t, y_s, reset_h, active_users) in enumerate(dataloader_test):
             active_users = active_users.squeeze()
             for j, reset in enumerate(reset_h):
                 if reset:
@@ -102,10 +108,16 @@ def evaluate_test():
             
             # squeeze for reasons of "loader-batch-size-is-1"
             x = x.squeeze().to(device)
-            active_users = active_users.to(device)
+            t = t.squeeze().to(device)
+            s = s.squeeze().to(device)            
             y = y.squeeze()
+            y_t = y_t.squeeze().to(device)
+            y_s = y_s.squeeze().to(device)
+            
+            active_users = active_users.to(device)            
         
-            out, h = trainer.evaluate(x, h, active_users)
+            # evaluate:
+            out, h = trainer.evaluate(x, t, s, y_t, y_s, h, active_users)
             
             for j in range(user_length):  
                 # o contains a per user list of votes for all locations for each sequence entry
@@ -207,24 +219,32 @@ def sample(idx):
         
         resets = 0
         
-        for i, (x, times, coords, y, reset_h, active_users) in enumerate(dataloader_test):
+        for i, (x, t, s, y, y_t, y_s, reset_h, active_users) in enumerate(dataloader_test):
             if reset_h[idx]:
                 resets += 1
             
             if resets > 1:
                 return
                            
-            x = x.squeeze()[:, idx].to(device)
+            x = x.squeeze()[:, idx].to(device)            
+            t = t.squeeze()[:, idx].to(device)
+            s = s.squeeze()[:, idx].to(device)
             y = y.squeeze()[:, idx].to(device)
+            y_t = y_t.squeeze()[:, idx].to(device)
+            y_s = y_s.squeeze()[:, idx].to(device)
             active_user = active_users.squeeze()[idx].to(device).view(1,1)
         
             offset = 1
             test_input = x[:offset].view(offset, 1)
+            test_t = t[:offset].view(offset, 1)
+            test_s = s[:offset].view(offset, 2)
+            test_y_t = y_t[:offset].view(offset, 1)
+            test_y_s = y_s[:offset].view(offset, 2)
     
             for i in range(seq_length):
                 #y_ts, h = model(test_input, h)
                 
-                out, h = trainer.evaluate(test_input, h, active_user)
+                out, h = trainer.evaluate(test_input, test_t, test_s, test_y_t, test_y_s, h, active_user)
                 
                 #if use_cross_entropy:
                 #    probs = y_ts[-1].transpose(0, 1)
@@ -237,9 +257,14 @@ def sample(idx):
                 print('in', test_input.item(), 'expected', y[offset+i-1].item(), ': idx-target', np.where(rank == y[offset+i-1].item())[0][0] + 1, 'prediction', rank[:5])
             
                 test_input = y[offset+i-1].view(1, 1)
+                test_t = t[offset+i-1].view(1, 1)
+                test_s = s[offset+i-1].view(1, 2)
+                test_y_t = y_t[offset+i-1].view(1, 1)
+                test_y_s = y_s[offset+i-1].view(1, 2)
+                
 
 # test user idx
-sample_user_id = 0
+sample_user_id = 2
 train_seqs = dataset.sequences_by_user(sample_user_id)
 test_seqs = dataset_test.sequences_by_user(sample_user_id)
 print('~~~ train ~~~', train_seqs)
@@ -255,7 +280,7 @@ for e in range(epochs):
     h = h0_strategy.on_init(user_length).to(device)
     
     dataset.shuffle_users() # shuffle users before each epoch!
-    for i, (x, times, coords, y, reset_h, active_users) in enumerate(dataloader):
+    for i, (x, t, s, y, y_t, y_s, reset_h, active_users) in enumerate(dataloader):
         for j, reset in enumerate(reset_h):
             if reset:
                 h[0, j] = h0_strategy.on_reset(active_users[0][j])
@@ -269,18 +294,25 @@ for e in range(epochs):
         #y = y.transpose(1, 0).contiguous()
         #x = x.view(100, batch_size)
         x = x.squeeze().to(device)
+        t = t.squeeze().to(device)
+        s = s.squeeze().to(device)
         y = y.squeeze().to(device)
+        y_t = y_t.squeeze().to(device)
+        y_s = y_s.squeeze().to(device)                
         active_users = active_users.to(device)
         
         optimizer.zero_grad()
-        loss, h = trainer.loss(x, y, h, active_users)
+        loss, h = trainer.loss(x, t, s, y, y_t, y_s, h, active_users)
         loss.backward(retain_graph=True) # backpropagate through time to adjust the weights and find the gradients of the loss function
         latest_loss = loss.item()        
         optimizer.step()
         
         # persist state for test
         h0_strategy.persist_state(h, active_users[0])
-        
+    
+    # debug info:
+    trainer.debug()
+    
     # statistics:
     if (e+1) % 1 == 0:
         print(f'Epoch: {e+1}/{epochs}')
@@ -294,6 +326,5 @@ for e in range(epochs):
 def visualize_embedding(embedding):
     pass
         
-
 
 
