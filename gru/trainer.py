@@ -156,12 +156,12 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
         if self.use_temporal:
             f_t = lambda delta_t, user_len: (torch.cos(delta_t*2*np.pi / 86400) + 1) / 2
         else:
-            f_t = lambda delta_t, user_len: torch.ones(user_len)
+            f_t = lambda delta_t, user_len: torch.ones(user_len, device=device)
         
         if self.use_spatial:
             f_s = lambda delta_s, user_len: torch.exp(-delta_s)
         else:
-            f_s = lambda delta_s, user_len: torch.ones(user_len)
+            f_s = lambda delta_s, user_len: torch.ones(user_len, device=device)
         
         self.loc_count = loc_count
         self.cross_entropy_loss = nn.CrossEntropyLoss()

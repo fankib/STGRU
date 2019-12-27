@@ -103,8 +103,8 @@ def evaluate_test():
                     h[0, j] = h0_strategy.on_reset_test(active_users[j])
                     reset_count[active_users[j]] += 1
             
-            if i % 10 == 0:
-                print('active on batch', i, active_users)
+            #if i % 10 == 0:
+            #    print('active on batch', i, active_users)
             
             # squeeze for reasons of "loader-batch-size-is-1"
             x = x.squeeze().to(device)
@@ -318,7 +318,7 @@ for e in range(epochs):
         print(f'Epoch: {e+1}/{epochs}')
         print(f'Loss: {latest_loss}')
     if (e+1) % args.validate_epoch == 0:
-        sample(sample_user_id)
+        #sample(sample_user_id)
         print('~~~ Test Set Evaluation ~~~')
         evaluate_test()
 
