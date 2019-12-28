@@ -3,7 +3,7 @@ import torch
 from torch import nn
 import numpy as np
 
-from network import RNN, RNN_user, RNN_cls, RNN_cls_user, RNN_cls_st
+from network import RNN, RNN_user, RNN_cls, RNN_cls_user, RNN_cls_st, RNN_cls_st_user
 
 class TrainerFactory():
     
@@ -142,8 +142,12 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
             if self.use_spatial and not self.use_temporal:
                 return 'Use Spatial Cross Entropy training.'
             return 'Use Spatial and Temporal Cross Entropy training.'
-        raise Exception('not yet supported')
-        return 'Use Cross Entropy training with user embeddings.'
+        else:
+            if self.use_temporal and not self.use_spatial:
+                return 'Use Temporal Cross Entropy training with user embeddings.'
+            if self.use_spatial and not self.use_temporal:
+                return 'Use Spatial Cross Entropy training with user embeddings.'
+            return 'Use Spatial and Temporal Cross Entropy training with user embeddings.'
     
     def debug(self):
         pass
@@ -166,8 +170,7 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
         self.loc_count = loc_count
         self.cross_entropy_loss = nn.CrossEntropyLoss()
         if self.use_user_embedding:
-            #self.model = RNN_cls_st(loc_count, user_count, hidden_size, gru_factory).to(device)
-            pass
+            self.model = RNN_cls_st_user(loc_count, user_count, hidden_size, f_t, f_s, gru_factory).to(device)
         else:
             self.model = RNN_cls_st(loc_count, hidden_size, f_t, f_s, gru_factory).to(device)
     

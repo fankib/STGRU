@@ -174,3 +174,52 @@ class RNN_cls_st(nn.Module):
         
         y_linear = self.fc(out_w)
         return y_linear, h
+    
+class RNN_cls_st_user(nn.Module):
+    ''' GRU based rnn. applies weighted average using spatial and temporal data WITH user embeddings'''
+    
+    def __init__(self, input_size, user_count, hidden_size, f_t, f_s, gru_factory):
+        super(RNN_cls_st_user, self).__init__()
+        self.input_size = input_size
+        self.user_count = user_count
+        self.hidden_size = hidden_size
+        self.f_t = f_t # function for computing temporal weight
+        self.f_s = f_s # function for computing spatial weight
+
+        self.encoder = nn.Embedding(input_size, hidden_size)
+        self.user_encoder = nn.Embedding(user_count, hidden_size)
+        self.gru = gru_factory.create(hidden_size)
+        self.fc = nn.Linear(2*hidden_size, input_size) # create outputs in lenght of locations
+
+    def forward(self, x, delta_t, delta_s, h, active_user):
+        seq_len, user_len = x.size()
+        x_emb = self.encoder(x)
+        out, h = self.gru(x_emb, h)
+        
+        # comopute weights per
+        out_w = torch.zeros(seq_len, user_len, self.hidden_size, device=x.device)
+        cummulative_t = torch.zeros(seq_len, user_len, device=x.device)
+        cummulative_s = torch.zeros(seq_len, user_len, device=x.device)
+        for i in range(seq_len):
+            cummulative_t[0:(i+1)] += delta_t[i] 
+            cummulative_s[0:(i+1)] += delta_s[i]
+            sum_w = torch.zeros(user_len, 1, device=x.device)
+            for j in range(i+1):
+                a_j = self.f_t(cummulative_t[j], user_len) # (torch.cos(cummulative_t[j]*2*np.pi / 86400) + 1) / 2 #
+                b_j = self.f_s(cummulative_s[j], user_len)
+                a_j = a_j.unsqueeze(1)
+                b_j = b_j.unsqueeze(1)
+                w_j = a_j*b_j
+                sum_w += w_j
+                out_w[i] += w_j*out[j] # could be factored out into a matrix!
+            # normliaze according to weights
+            out_w[i] /= sum_w
+        
+        # add user embedding:
+        p_u = self.user_encoder(active_user)
+        p_u = p_u.view(user_len, self.hidden_size)
+        out_pu = torch.zeros(seq_len, user_len, 2*self.hidden_size, device=x.device)
+        for i in range(seq_len):
+            out_pu[i] = torch.cat([out_w[i], p_u], dim=1)
+        y_linear = self.fc(out_pu)
+        return y_linear, h
