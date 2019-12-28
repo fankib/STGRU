@@ -160,13 +160,17 @@ class RNN_cls_st(nn.Module):
         for i in range(seq_len):
             cummulative_t[0:(i+1)] += delta_t[i] 
             cummulative_s[0:(i+1)] += delta_s[i]
+            sum_w = torch.zeros(user_len, 1, device=x.device)
             for j in range(i+1):
                 a_j = self.f_t(cummulative_t[j], user_len) # (torch.cos(cummulative_t[j]*2*np.pi / 86400) + 1) / 2 #
                 b_j = self.f_s(cummulative_s[j], user_len)
                 a_j = a_j.unsqueeze(1)
                 b_j = b_j.unsqueeze(1)
-                out_w[i] += a_j*b_j*out[j] # could be factored out into a matrix!
-                # Question: normalize a_j s.t. sum(a_j)=1 ???
+                w_j = a_j*b_j
+                sum_w += w_j
+                out_w[i] += w_j*out[j] # could be factored out into a matrix!
+            # normliaze according to weights
+            out_w[i] /= sum_w
         
         y_linear = self.fc(out_w)
         return y_linear, h
