@@ -166,7 +166,7 @@ class RNN_cls_st(nn.Module):
                 b_j = self.f_s(cummulative_s[j], user_len)
                 a_j = a_j.unsqueeze(1)
                 b_j = b_j.unsqueeze(1)
-                w_j = a_j*b_j
+                w_j = a_j*b_j + 1e-10 # small epsilon to have no 0 division
                 sum_w += w_j
                 out_w[i] += w_j*out[j] # could be factored out into a matrix!
             # normliaze according to weights
@@ -209,7 +209,7 @@ class RNN_cls_st_user(nn.Module):
                 b_j = self.f_s(cummulative_s[j], user_len)
                 a_j = a_j.unsqueeze(1)
                 b_j = b_j.unsqueeze(1)
-                w_j = a_j*b_j
+                w_j = a_j*b_j + 1e-10 # small epsilon to have no 0 division
                 sum_w += w_j
                 out_w[i] += w_j*out[j] # could be factored out into a matrix!
             # normliaze according to weights

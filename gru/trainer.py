@@ -7,7 +7,7 @@ from network import RNN, RNN_user, RNN_cls, RNN_cls_user, RNN_cls_st, RNN_cls_st
 
 class TrainerFactory():
     
-    def create(self, cross_entropy, user_embedding, temporal, spatial):
+    def create(self, cross_entropy, user_embedding, temporal, spatial, lambda_t, lambda_s):
         bpr = not cross_entropy
 
         if bpr:
@@ -18,7 +18,7 @@ class TrainerFactory():
             if not temporal and not spatial:
                 return CrossEntropyTrainer(user_embedding)
             else:
-                return SpatialTemporalCrossEntropyTrainer(user_embedding, temporal, spatial)
+                return SpatialTemporalCrossEntropyTrainer(user_embedding, temporal, spatial, lambda_t, lambda_s)
 
 class Trainer():
     
@@ -130,10 +130,12 @@ class CrossEntropyTrainer(Trainer):
 
 class SpatialTemporalCrossEntropyTrainer(Trainer):
     
-    def __init__(self, use_user_embedding, use_temporal, use_spatial):
+    def __init__(self, use_user_embedding, use_temporal, use_spatial, lambda_t, lambda_s):
         super(SpatialTemporalCrossEntropyTrainer, self).__init__(use_user_embedding)
         self.use_temporal = use_temporal
         self.use_spatial = use_spatial
+        self.lambda_t = lambda_t
+        self.lambda_s = lambda_s
     
     def greeter(self):
         if not self.use_user_embedding:
@@ -158,12 +160,12 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
     
     def prepare(self, loc_count, user_count, hidden_size, gru_factory, device):
         if self.use_temporal:
-            f_t = lambda delta_t, user_len: (torch.cos(delta_t*2*np.pi / 86400) + 1) / 2
+            f_t = lambda delta_t, user_len: ((torch.cos(delta_t*2*np.pi / 86400) + 1) / 2)*torch.exp(-(delta_t*self.lambda_t))
         else:
             f_t = lambda delta_t, user_len: torch.ones(user_len, device=device)
         
         if self.use_spatial:
-            f_s = lambda delta_s, user_len: torch.exp(-delta_s)
+            f_s = lambda delta_s, user_len: torch.exp(-(delta_s*self.lambda_s))
         else:
             f_s = lambda delta_s, user_len: torch.ones(user_len, device=device)
         

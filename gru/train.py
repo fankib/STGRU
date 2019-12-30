@@ -34,6 +34,8 @@ parser.add_argument('--spatial', default=False, const=True, nargs='?', type=bool
 parser.add_argument('--dataset', default='loc-gowalla_totalCheckins.txt', type=str, help='the dataset under ../../dataset/<dataset.txt> to load')
 parser.add_argument('--gru', default='pytorch', type=str, help='the GRU implementation to use: [pytorch|own]')
 parser.add_argument('--h0', default='fixnoise', type=str, help='h0 strategy to use: [zero|fixnoise|zero-persist|fixnoise-persist], zero: use zero vector, fixnoise: use normal noise, -persist: propagate latest train state to test')
+parser.add_argument('--lambda_t', default=1.0, type=float, help='decay factor for temporal data')
+parser.add_argument('--lambda_s', default=1.0, type=float, help='decay factor for spatial data')
 args = parser.parse_args()
 
 ###### parameters ######
@@ -60,7 +62,7 @@ device = torch.device('cpu') if args.gpu == -1 else torch.device('cuda', args.gp
 print('use', device)
 
 trainer_factory = TrainerFactory()
-trainer = trainer_factory.create(use_cross_entropy, use_user_embedding, use_temporal, use_spatial)
+trainer = trainer_factory.create(use_cross_entropy, use_user_embedding, use_temporal, use_spatial, args.lambda_t, args.lambda_s)
 print('{}'.format(trainer.greeter()))
 #print('{} {}'.format(trainer.greeter(), gru_factory.greeter()))
 
