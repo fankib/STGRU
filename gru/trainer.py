@@ -178,15 +178,13 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
     
     def evaluate(self, x, t, s, y_t, y_s, h, active_users):
         delta_t = y_t - t
-        delta_s = torch.norm(y_s - s, dim=-1)        
-        out, h = self.model(x, delta_t, delta_s, h, active_users)
+        out, h = self.model(x, delta_t, s, y_s, h, active_users)
         out_t = out.transpose(0, 1)
         return out_t, h # model output is directly associated with the ranking per location.
     
     def loss(self, x, t, s, y, y_t, y_s, h, active_users):
         delta_t = y_t - t
-        delta_s = torch.norm(y_s - s, dim=-1)        
-        out, h = self.model(x, delta_t, delta_s, h, active_users)
+        out, h = self.model(x, delta_t, s, y_s, h, active_users)
         out = out.view(-1, self.loc_count)
         y = y.view(-1)
         l = self.cross_entropy_loss(out, y)

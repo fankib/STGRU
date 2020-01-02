@@ -36,6 +36,7 @@ parser.add_argument('--gru', default='pytorch', type=str, help='the GRU implemen
 parser.add_argument('--h0', default='fixnoise', type=str, help='h0 strategy to use: [zero|fixnoise|zero-persist|fixnoise-persist], zero: use zero vector, fixnoise: use normal noise, -persist: propagate latest train state to test')
 parser.add_argument('--lambda_t', default=1.0, type=float, help='decay factor for temporal data')
 parser.add_argument('--lambda_s', default=1.0, type=float, help='decay factor for spatial data')
+parser.add_argument('--validate-recall', default=False, const=True, nargs='?', type=bool, help='activate (slower) recall@1,5,10 additional to MAP')
 args = parser.parse_args()
 
 ###### parameters ######
@@ -55,6 +56,8 @@ dataset_file = '../../dataset/{}'.format(args.dataset)
 gru_factory = GruFactory(args.gru)
 #h0_strategy = PersistUserStateStrategy(hidden_size, user_count, FixNoiseStrategy(hidden_size))
 h0_strategy = h_strategy_from_string(args.h0, hidden_size, user_count)
+do_map_only = not args.validate_recall
+do_recall = args.validate_recall
 ########################
 
 ### CUDA Setup ###
@@ -126,7 +129,6 @@ def evaluate_test():
                 o = out[j]
                 
                 # Only compute MAP is significantly faster as we ommit sorting.                
-                do_map_only = True
                 if (do_map_only):
                     y_j = y[:, j]
                     
@@ -148,7 +150,6 @@ def evaluate_test():
                         u_average_precision[active_users[j]] += precision
                     
                 
-                do_recall = False
                 if (do_recall):
                     
                     #start = time.time()
@@ -193,7 +194,7 @@ def evaluate_test():
                         precision = 1./(idx_target+1)
                         u_average_precision[active_users[j]] += precision
         
-        formatter = "{0:.2f}"
+        formatter = "{0:.8f}"
         for j in range(args.users):
             iter_cnt += u_iter_cnt[j]
             recall1 += u_recall1[j]
@@ -212,6 +213,7 @@ def evaluate_test():
         print('predictions:', iter_cnt)
             
 
+# TODO: fixme!!
 def sample(idx):
     assert idx < user_length # does not yet work if we wrap around users!
     dataset_test.reset()
@@ -274,7 +276,7 @@ print('~~~ test ~~~', test_seqs)
 
 # try before train
 if not skip_sanity:
-    sample(sample_user_id)
+    #sample(sample_user_id)
     evaluate_test()
 
 # train!
