@@ -151,16 +151,10 @@ def evaluate_test():
                     
                 
                 if (do_recall):
-                    
-                    #start = time.time()
-                    # np sort:
-                    #rank = np.argsort(-1*o.numpy(), axis=1)
-                    # torch sort:
-                    #rank = torch.argsort(o, dim=1, descending = True)[:5000, :].cpu().numpy()
-                    rank = torch.argsort(o, dim=1, descending = True).cpu().numpy()
-                    #duration = time.time() - start
-                    #print('argsort for', active_users[j], 'in', duration)
-                    
+                    # partition elements
+                    o_n = o.cpu().detach().numpy()
+                    ind = np.argpartition(o_n, -10, axis=1)[:, -10:] # top 10 elements
+                                       
                     y_j = y[:, j]
                     
                     for k in range(len(y_j)):                    
@@ -173,25 +167,27 @@ def evaluate_test():
                         #if Ps[j].size()[0] == 1:
                         #    continue # skip user with single location.
                         
-                        r = rank[k, :]
+                        # resort indices for k:
+                        ind_k = ind[k]
+                        r = ind_k[np.argsort(-o_n[k, ind_k], axis=0)] # sort top 10 elements descending
+                        
                         # with filtering on seen locations:
                         #r = torch.tensor(PQs[r]) # transform to given locations
                         # w/o filtering on seen locations:
                         r = torch.tensor(r)
                         t = y_j[k]
                         
-                        if not t in r:
-                            print('we have a problem with user', active_users[j], ': t is', t, 'rank is', r)
+                        # compute MAP:
+                        r_kj = o_n[k, :]
+                        t_val = r_kj[t]
+                        upper = np.where(r_kj > t_val)[0]
+                        precision = 1. / (1+len(upper))
                         
-                        #if (j == 1):
-                        #    print('at user 1, t:', t,'r[0]:', r[0])
-                        
+                        # store
                         u_iter_cnt[active_users[j]] += 1
                         u_recall1[active_users[j]] += t in r[:1]
                         u_recall5[active_users[j]] += t in r[:5]
                         u_recall10[active_users[j]] += t in r[:10]
-                        idx_target = np.where(r == t)[0][0]
-                        precision = 1./(idx_target+1)
                         u_average_precision[active_users[j]] += precision
         
         formatter = "{0:.8f}"
