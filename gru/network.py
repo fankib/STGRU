@@ -29,6 +29,9 @@ class GruFactory():
     
     def __init__(self, gru_type_str):
         self.gru_type = GRU.from_string(gru_type_str)
+    
+    def is_lstm(self):
+        return self.gru_type == GRU.LSTM
         
     def greeter(self):
         if self.gru_type == GRU.PYTORCH_GRU:
@@ -48,8 +51,7 @@ class GruFactory():
         if self.gru_type == GRU.RNN:
             return nn.RNN(hidden_size, hidden_size)
         if self.gru_type == GRU.LSTM:
-            raise Exception('not yet implemented')
-            #return nn.LSTM(hidden_size, hidden_size)
+            return nn.LSTM(hidden_size, hidden_size)
         
 
 class RNN(nn.Module):
@@ -199,7 +201,7 @@ class RNN_cls_st_user(nn.Module):
 
     def forward(self, x, delta_t, s, y_s, h, active_user):
         seq_len, user_len = x.size()
-        x_emb = self.encoder(x)
+        x_emb = self.encoder(x)        
         out, h = self.gru(x_emb, h)
         
         # comopute weights per

@@ -32,7 +32,7 @@ parser.add_argument('--user-embedding', default=False, const=True, nargs='?', ty
 parser.add_argument('--temporal', default=False, const=True, nargs='?', type=bool, help='activate use of temporal data')
 parser.add_argument('--spatial', default=False, const=True, nargs='?', type=bool, help='activate use of spatial data')
 parser.add_argument('--dataset', default='loc-gowalla_totalCheckins.txt', type=str, help='the dataset under ../../dataset/<dataset.txt> to load')
-parser.add_argument('--gru', default='pytorch', type=str, help='the GRU implementation to use: [pytorch|own|rnn]')
+parser.add_argument('--gru', default='pytorch', type=str, help='the GRU implementation to use: [pytorch|own|rnn|lstm]')
 parser.add_argument('--h0', default='fixnoise', type=str, help='h0 strategy to use: [zero|fixnoise|zero-persist|fixnoise-persist], zero: use zero vector, fixnoise: use normal noise, -persist: propagate latest train state to test')
 parser.add_argument('--lambda_t', default=1.0, type=float, help='decay factor for temporal data')
 parser.add_argument('--lambda_s', default=1.0, type=float, help='decay factor for spatial data')
@@ -55,7 +55,7 @@ use_spatial = args.spatial
 dataset_file = '../../dataset/{}'.format(args.dataset)
 gru_factory = GruFactory(args.gru)
 #h0_strategy = PersistUserStateStrategy(hidden_size, user_count, FixNoiseStrategy(hidden_size))
-h0_strategy = h_strategy_from_string(args.h0, hidden_size, user_count)
+h0_strategy = h_strategy_from_string(args.h0, hidden_size, user_count, gru_factory.is_lstm())
 do_map_only = not args.validate_recall
 do_recall = args.validate_recall
 ########################
@@ -85,7 +85,7 @@ optimizer = torch.optim.Adam(trainer.parameters(), lr = lr, weight_decay = weigh
 
 def evaluate_test():
     dataset_test.reset()
-    h = h0_strategy.on_init(user_length).to(device)
+    h = h0_strategy.on_init(user_length, device)
     
     with torch.no_grad():        
         iter_cnt = 0
@@ -105,7 +105,12 @@ def evaluate_test():
             active_users = active_users.squeeze()
             for j, reset in enumerate(reset_h):
                 if reset:
-                    h[0, j] = h0_strategy.on_reset_test(active_users[j])
+                    if gru_factory.is_lstm():
+                        hc = h0_strategy.on_reset_test(active_users[j], device)
+                        h[0][0, j] = hc[0]
+                        h[1][0, j] = hc[1]
+                    else:
+                        h[0, j] = h0_strategy.on_reset_test(active_users[j], device)
                     reset_count[active_users[j]] += 1
             
             #if i % 10 == 0:
@@ -215,7 +220,7 @@ def sample(idx):
     dataset_test.reset()
    
     with torch.no_grad(): 
-        h = h0_strategy.on_reset_test(idx).view(1, 1, hidden_size).to(device)
+        h = h0_strategy.on_reset_test(idx, device).view(1, 1, hidden_size) # FIXME
         
         resets = 0
         
@@ -277,13 +282,18 @@ if not skip_sanity:
 
 # train!
 for e in range(epochs):
-    h = h0_strategy.on_init(user_length).to(device)
+    h = h0_strategy.on_init(user_length, device)
     
     dataset.shuffle_users() # shuffle users before each epoch!
     for i, (x, t, s, y, y_t, y_s, reset_h, active_users) in enumerate(dataloader):
         for j, reset in enumerate(reset_h):
             if reset:
-                h[0, j] = h0_strategy.on_reset(active_users[0][j])
+                if gru_factory.is_lstm():
+                    hc = h0_strategy.on_reset(active_users[0][j])
+                    h[0][0, j] = hc[0]
+                    h[1][0, j] = hc[1]
+                else:
+                    h[0, j] = h0_strategy.on_reset(active_users[0][j])
         
         #if i % 100 == 0:
         #    print('active on batch', i, active_users[0])
