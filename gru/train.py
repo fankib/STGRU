@@ -213,6 +213,71 @@ def evaluate_test():
         print('MAP', formatter.format(average_precision/iter_cnt))
         print('predictions:', iter_cnt)
             
+                
+
+# test user idx
+sample_user_id = 2
+train_seqs = dataset.sequences_by_user(sample_user_id)
+test_seqs = dataset_test.sequences_by_user(sample_user_id)
+print('~~~ train ~~~', train_seqs)
+print('~~~ test ~~~', test_seqs)
+
+# try before train
+if not skip_sanity:
+    #sample(sample_user_id)
+    evaluate_test()
+
+# train!
+for e in range(epochs):
+    h = h0_strategy.on_init(user_length, device)
+    
+    dataset.shuffle_users() # shuffle users before each epoch!
+    for i, (x, t, s, y, y_t, y_s, reset_h, active_users) in enumerate(dataloader):
+        for j, reset in enumerate(reset_h):
+            if reset:
+                if gru_factory.is_lstm():
+                    hc = h0_strategy.on_reset(active_users[0][j])
+                    h[0][0, j] = hc[0]
+                    h[1][0, j] = hc[1]
+                else:
+                    h[0, j] = h0_strategy.on_reset(active_users[0][j])
+        
+        x = x.squeeze().to(device)
+        t = t.squeeze().to(device)
+        s = s.squeeze().to(device)
+        y = y.squeeze().to(device)
+        y_t = y_t.squeeze().to(device)
+        y_s = y_s.squeeze().to(device)                
+        active_users = active_users.to(device)
+        
+        optimizer.zero_grad()
+        loss, h = trainer.loss(x, t, s, y, y_t, y_s, h, active_users)
+        loss.backward(retain_graph=True) # backpropagate through time to adjust the weights and find the gradients of the loss function
+        latest_loss = loss.item()        
+        optimizer.step()
+        
+        # persist state for test
+        h0_strategy.persist_state(h, active_users[0])
+    
+    # debug info:
+    trainer.debug()
+    
+    # statistics:
+    if (e+1) % 1 == 0:
+        print(f'Epoch: {e+1}/{epochs}')
+        print(f'Loss: {latest_loss}')
+    if (e+1) % args.validate_epoch == 0:
+        #sample(sample_user_id)
+        print('~~~ Test Set Evaluation ~~~')
+        evaluate_test()
+
+
+def visualize_embedding(embedding):
+    pass
+        
+
+
+
 
 # TODO: fixme!!
 def sample(idx):
@@ -266,75 +331,3 @@ def sample(idx):
                 test_s = s[offset+i-1].view(1, 2)
                 test_y_t = y_t[offset+i-1].view(1, 1)
                 test_y_s = y_s[offset+i-1].view(1, 2)
-                
-
-# test user idx
-sample_user_id = 2
-train_seqs = dataset.sequences_by_user(sample_user_id)
-test_seqs = dataset_test.sequences_by_user(sample_user_id)
-print('~~~ train ~~~', train_seqs)
-print('~~~ test ~~~', test_seqs)
-
-# try before train
-if not skip_sanity:
-    #sample(sample_user_id)
-    evaluate_test()
-
-# train!
-for e in range(epochs):
-    h = h0_strategy.on_init(user_length, device)
-    
-    dataset.shuffle_users() # shuffle users before each epoch!
-    for i, (x, t, s, y, y_t, y_s, reset_h, active_users) in enumerate(dataloader):
-        for j, reset in enumerate(reset_h):
-            if reset:
-                if gru_factory.is_lstm():
-                    hc = h0_strategy.on_reset(active_users[0][j])
-                    h[0][0, j] = hc[0]
-                    h[1][0, j] = hc[1]
-                else:
-                    h[0, j] = h0_strategy.on_reset(active_users[0][j])
-        
-        #if i % 100 == 0:
-        #    print('active on batch', i, active_users[0])
-        
-        # reshape
-        # sequence already in front!
-        #x = x.transpose(1, 0).contiguous()
-        #y = y.transpose(1, 0).contiguous()
-        #x = x.view(100, batch_size)
-        x = x.squeeze().to(device)
-        t = t.squeeze().to(device)
-        s = s.squeeze().to(device)
-        y = y.squeeze().to(device)
-        y_t = y_t.squeeze().to(device)
-        y_s = y_s.squeeze().to(device)                
-        active_users = active_users.to(device)
-        
-        optimizer.zero_grad()
-        loss, h = trainer.loss(x, t, s, y, y_t, y_s, h, active_users)
-        loss.backward(retain_graph=True) # backpropagate through time to adjust the weights and find the gradients of the loss function
-        latest_loss = loss.item()        
-        optimizer.step()
-        
-        # persist state for test
-        h0_strategy.persist_state(h, active_users[0])
-    
-    # debug info:
-    trainer.debug()
-    
-    # statistics:
-    if (e+1) % 1 == 0:
-        print(f'Epoch: {e+1}/{epochs}')
-        print(f'Loss: {latest_loss}')
-    if (e+1) % args.validate_epoch == 0:
-        #sample(sample_user_id)
-        print('~~~ Test Set Evaluation ~~~')
-        evaluate_test()
-
-
-def visualize_embedding(embedding):
-    pass
-        
-
-

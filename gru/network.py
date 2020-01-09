@@ -4,13 +4,14 @@ import torch.nn.functional as F
 import numpy as np
 from enum import Enum
 
-from gru import OwnGRU
+from gru import OwnGRU, OwnLSTM
 
 class GRU(Enum):
     PYTORCH_GRU = 0
     OWN_GRU = 1
     RNN = 2
     LSTM = 3
+    OWN_LSTM = 4
     
     @staticmethod
     def from_string(name):
@@ -22,6 +23,8 @@ class GRU(Enum):
             return GRU.RNN
         if name == 'lstm':
             return GRU.LSTM
+        if name == 'ownlstm':
+            return GRU.OWN_LSTM
         raise ValueError('{} not supported'.format(name))
         
 
@@ -31,7 +34,7 @@ class GruFactory():
         self.gru_type = GRU.from_string(gru_type_str)
     
     def is_lstm(self):
-        return self.gru_type == GRU.LSTM
+        return self.gru_type == GRU.LSTM or self.gru_type == GRU.OWN_LSTM
         
     def greeter(self):
         if self.gru_type == GRU.PYTORCH_GRU:
@@ -42,6 +45,8 @@ class GruFactory():
             return 'Use vanilla pytorch RNN implementation.'
         if self.gru_type == GRU.LSTM:
             return 'Use pytorch LSTM implementation.'
+        if self.gru_type == GRU.OWN_LSTM:
+            return 'Use *own* LSTM implementation.'
         
     def create(self, hidden_size):
         if self.gru_type == GRU.PYTORCH_GRU:
@@ -52,6 +57,8 @@ class GruFactory():
             return nn.RNN(hidden_size, hidden_size)
         if self.gru_type == GRU.LSTM:
             return nn.LSTM(hidden_size, hidden_size)
+        if self.gru_type == GRU.OWN_LSTM:
+            return OwnLSTM(hidden_size)
         
 
 class RNN(nn.Module):

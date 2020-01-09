@@ -41,4 +41,53 @@ class OwnGRU(nn.Module):
             out.append(h.view(user_len, self.hidden_size))
         out = torch.stack(out, dim=0).view(seq_len, user_len, self.hidden_size)
         return out, h.view(1, user_len, self.hidden_size)
-            
+    
+class OwnLSTM(nn.Module):
+    
+    def __init__(self, hidden_size):
+        super(OwnLSTM, self).__init__()
+        self.hidden_size = hidden_size
+        
+        # some initialization
+        self.mu = 0
+        self.sd = 1/(hidden_size**2)
+        
+        # input weights:
+        self.Wi = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Wf = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Wo = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Wc = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+
+        # hidden state weights:
+        self.Ui = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Uf = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Uo = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Uc = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+
+        # bias terms:
+        self.bi = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        self.bf = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        self.bo = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)           
+        self.bc = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        
+    def forward(self, x, hc):
+        seq_len, user_len, _ = x.size()
+        h, c = hc
+        out = []
+        h = h[0].unsqueeze(2)
+        c = c[0].unsqueeze(2)
+        for i in range(seq_len):
+            x_t = x[i].view(user_len, self.hidden_size, 1)
+            i = torch.sigmoid(torch.matmul(self.Wi, x_t) + torch.matmul(self.Ui, h) + self.bi)
+            f = torch.sigmoid(torch.matmul(self.Wf, x_t) + torch.matmul(self.Uf, h) + self.bf)
+            o = torch.sigmoid(torch.matmul(self.Wo, x_t) + torch.matmul(self.Uo, h) + self.bo)
+            c_tilde = torch.tanh(torch.matmul(self.Wc, x_t) + torch.matmul(self.Uc, h) + self.bc)
+            c = f*c + i*c_tilde
+            h = o*torch.tanh(c)
+            out.append(h.squeeze())
+        out = torch.stack(out, dim=0).view(seq_len, user_len, self.hidden_size)
+        return out, (h.view(1, user_len, self.hidden_size), c.view(1, user_len, self.hidden_size))
+
+
+        
+        
