@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 from enum import Enum
 
-from gru import OwnGRU, OwnLSTM
+from gru import OwnGRU, OwnLSTM, STGN, STGCN
 
 class GRU(Enum):
     PYTORCH_GRU = 0
@@ -12,6 +12,8 @@ class GRU(Enum):
     RNN = 2
     LSTM = 3
     OWN_LSTM = 4
+    STGN = 5
+    STGCN = 6
     
     @staticmethod
     def from_string(name):
@@ -25,6 +27,10 @@ class GRU(Enum):
             return GRU.LSTM
         if name == 'ownlstm':
             return GRU.OWN_LSTM
+        if name == 'stgn':
+            return GRU.STGN
+        if name == 'stgcn':
+            return GRU.STGCN
         raise ValueError('{} not supported'.format(name))
         
 
@@ -34,7 +40,10 @@ class GruFactory():
         self.gru_type = GRU.from_string(gru_type_str)
     
     def is_lstm(self):
-        return self.gru_type == GRU.LSTM or self.gru_type == GRU.OWN_LSTM
+        return self.gru_type in [GRU.LSTM, GRU.OWN_LSTM, GRU.STGN, GRU.STGCN]
+    
+    def is_stgn(self):
+        return self.gru_type in [GRU.STGN, GRU.STGCN]
         
     def greeter(self):
         if self.gru_type == GRU.PYTORCH_GRU:
@@ -47,6 +56,10 @@ class GruFactory():
             return 'Use pytorch LSTM implementation.'
         if self.gru_type == GRU.OWN_LSTM:
             return 'Use *own* LSTM implementation.'
+        if self.gru_type == GRU.STGN:
+            return 'Use STGN variant.'
+        if self.gru_type == GRU.STGCN:
+            return 'Use STGCN variant.'
         
     def create(self, hidden_size):
         if self.gru_type == GRU.PYTORCH_GRU:
@@ -59,6 +72,10 @@ class GruFactory():
             return nn.LSTM(hidden_size, hidden_size)
         if self.gru_type == GRU.OWN_LSTM:
             return OwnLSTM(hidden_size)
+        if self.gru_type == GRU.STGN:
+            return STGN(hidden_size)
+        if self.gru_type == GRU.STGCN:
+            return STGCN(hidden_size)
         
 
 class RNN(nn.Module):
@@ -123,6 +140,7 @@ class RNN_cls(nn.Module):
         y_linear = self.fc(out)
         return y_linear, h
 
+
 class RNN_cls_user(nn.Module):
     ''' GRU based RNN used for cross entropy loss with user embeddings '''
     
@@ -148,6 +166,25 @@ class RNN_cls_user(nn.Module):
         for i in range(seq_len):
             out_pu[i] = torch.cat([out[i], p_u], dim=1)
         y_linear = self.fc(out_pu)        
+        return y_linear, h
+
+class RNN_cls_stgn(nn.Module):
+    ''' STGN based RNN used for cross entropy loss, using embeddings and one linear output layer '''
+    
+    def __init__(self, input_size, hidden_size, gru_factory):
+        super(RNN_cls_stgn, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+
+        self.encoder = nn.Embedding(input_size, hidden_size)
+        self.gru = gru_factory.create(hidden_size)
+        self.fc = nn.Linear(hidden_size, input_size) # create outputs in lenght of locations
+
+    def forward(self, x, delta_t, delta_s, h):
+        seq_len, user_len = x.size()
+        x_emb = self.encoder(x)
+        out, h = self.gru(x_emb, delta_t, delta_s, h)
+        y_linear = self.fc(out)
         return y_linear, h
 
 class RNN_cls_st(nn.Module):

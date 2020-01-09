@@ -65,7 +65,7 @@ device = torch.device('cpu') if args.gpu == -1 else torch.device('cuda', args.gp
 print('use', device)
 
 trainer_factory = TrainerFactory()
-trainer = trainer_factory.create(use_cross_entropy, use_user_embedding, use_temporal, use_spatial, args.lambda_t, args.lambda_s)
+trainer = trainer_factory.create(use_cross_entropy, use_user_embedding, use_temporal, use_spatial, args.lambda_t, args.lambda_s, gru_factory.is_stgn())
 #print('{}'.format(trainer.greeter()))
 print('{} {}'.format(trainer.greeter(), gru_factory.greeter()))
 

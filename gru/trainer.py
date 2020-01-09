@@ -3,12 +3,19 @@ import torch
 from torch import nn
 import numpy as np
 
-from network import RNN, RNN_user, RNN_cls, RNN_cls_user, RNN_cls_st, RNN_cls_st_user
+from network import RNN, RNN_user, RNN_cls, RNN_cls_user, RNN_cls_st, RNN_cls_st_user, RNN_cls_stgn
 
 class TrainerFactory():
     
-    def create(self, cross_entropy, user_embedding, temporal, spatial, lambda_t, lambda_s):
+    def create(self, cross_entropy, user_embedding, temporal, spatial, lambda_t, lambda_s, is_stgn):
         bpr = not cross_entropy
+        
+        if is_stgn:
+            assert cross_entropy
+            assert temporal
+            assert spatial
+            assert not user_embedding
+            return STGNTrainer()
 
         if bpr:
             assert not temporal
@@ -123,6 +130,42 @@ class CrossEntropyTrainer(Trainer):
     
     def loss(self, x, t, s, y, y_t, y_s, h, active_users):
         out, h = self.model(x, h, active_users)
+        out = out.view(-1, self.loc_count)
+        y = y.view(-1)
+        l = self.cross_entropy_loss(out, y)
+        return l, h
+
+class STGNTrainer(Trainer):
+    
+    def __init__(self):
+        super(STGNTrainer, self).__init__(False)
+    
+    def greeter(self):
+        return 'Do STGN training.'
+    
+    def debug(self):
+        pass
+    
+    def parameters(self):
+        return self.model.parameters()
+    
+    def prepare(self, loc_count, user_count, hidden_size, gru_factory, device):
+        self.loc_count = loc_count
+        self.cross_entropy_loss = nn.CrossEntropyLoss()
+        self.model = RNN_cls_stgn(loc_count, hidden_size, gru_factory).to(device)
+
+    def evaluate(self, x, t, s, y_t, y_s, h, active_users):
+        delta_t = y_t - t
+        delta_s = torch.norm(y_s - s, dim=-1)
+        out, h = self.model(x, delta_t, delta_s, h)
+        out_t = out.transpose(0, 1)
+        return out_t, h # model output is directly associated with the ranking per location.
+    
+    def loss(self, x, t, s, y, y_t, y_s, h, active_users):
+        with torch.no_grad():
+            delta_t = y_t - t
+            delta_s = torch.norm(y_s - s, dim=-1)
+        out, h = self.model(x, delta_t, delta_s, h)
         out = out.view(-1, self.loc_count)
         y = y.view(-1)
         l = self.cross_entropy_loss(out, y)
