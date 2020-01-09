@@ -80,7 +80,7 @@ dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
 # setup trainer
 trainer.prepare(gowalla.locations(), user_count, hidden_size, gru_factory, device)
 
-optimizer = torch.optim.Adam(trainer.parameters(), lr = lr, weight_decay = weight_decay).to(device)
+optimizer = torch.optim.Adam(trainer.parameters(), lr = lr, weight_decay = weight_decay)
 #optimizer = torch.optim.SGD(model.parameters(), lr = lr, momentum = 0.8, weight_decay = weight_decay)
 
 def evaluate_test():

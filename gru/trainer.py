@@ -201,7 +201,11 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
     
     def parameters(self):
         #return list(self.model.parameters()) + list([self.a, self.b]) 
-        return list(self.model.parameters()) + list([self.At, self.As])
+        #return list(self.model.parameters()) + list([self.At, self.As])
+        params = list(self.model.parameters())
+        params.append(self.At)
+        params.append(self.As)
+        return params
         
     
     def prepare(self, loc_count, user_count, hidden_size, gru_factory, device):
