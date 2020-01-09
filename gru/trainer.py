@@ -223,14 +223,13 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
         else:
             f_s = lambda delta_s, user_len: torch.ones(user_len, device=device)
         
-        # move to gpu:
-        self.As = self.As.to(device)
-        self.At = self.At.to(device)        
+        # move to gpu:        
         #torch.stack([torch.cos(delta_t*2*np.pi/3600),torch.sin(delta_t*2*np.pi/3600)], dim=0]
         
         USE_SPECIAL = True
         def special_t(delta_t, user_len, At, lambda_t, device):
             # encode time:
+            At = At.to(device)
             time_emb = torch.stack([torch.cos(delta_t*2*np.pi/3600),\
                     torch.sin(delta_t*2*np.pi/3600),\
                     torch.cos(delta_t*2*np.pi/86400),\
@@ -242,6 +241,7 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
             decay = torch.exp(-(delta_t/86400*lambda_t))
             return weight*decay
         def special_s(delta_s, user_len, As, lambda_s, device):
+            As = As.to(device)
             return torch.sigmoid(As*delta_s)*torch.exp(-(delta_s*self.lambda_s))
         if USE_SPECIAL: 
             self.lambda_t = 0.2
