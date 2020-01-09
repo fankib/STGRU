@@ -195,11 +195,14 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
             return 'Use Spatial and Temporal Cross Entropy training with user embeddings.'
     
     def debug(self):
+        print('As:', self.As)
+        print('At:', self.At)
         pass
     
     def parameters(self):
         #return list(self.model.parameters()) + list([self.a, self.b]) 
-        return self.model.parameters()
+        return list(self.model.parameters()) + list([self.At, self.As])
+        
     
     def prepare(self, loc_count, user_count, hidden_size, gru_factory, device):
         if self.use_temporal:
@@ -211,6 +214,36 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
             f_s = lambda delta_s, user_len: torch.exp(-(delta_s*self.lambda_s))
         else:
             f_s = lambda delta_s, user_len: torch.ones(user_len, device=device)
+        
+        mu = 1.0
+        sd = 0.1
+        self.At = nn.Parameter(torch.randn(1, 6, 1)*sd + mu)
+        self.As = nn.Parameter(torch.randn(1)*sd + mu)
+        
+        
+        #torch.stack([torch.cos(delta_t*2*np.pi/3600),torch.sin(delta_t*2*np.pi/3600)], dim=0]
+        
+        USE_SPECIAL = True
+        def special_t(delta_t, user_len, At, lambda_t, device):
+            # encode time:
+            time_emb = torch.stack([torch.cos(delta_t*2*np.pi/3600),\
+                    torch.sin(delta_t*2*np.pi/3600),\
+                    torch.cos(delta_t*2*np.pi/86400),\
+                    torch.sin(delta_t*2*np.pi/86400),\
+                    torch.cos(delta_t*2*np.pi/604800),\
+                    torch.sin(delta_t*2*np.pi/604800),\
+                    ], dim=1).unsqueeze(2)
+            weight = torch.sigmoid(torch.matmul(At.transpose(1,2), time_emb)).squeeze()
+            decay = torch.exp(-(delta_t/86400*lambda_t))
+            return weight*decay
+        def special_s(delta_s, user_len, As, lambda_s, device):
+            return torch.sigmoid(As*delta_s)*torch.exp(-(delta_s*self.lambda_s))
+        if USE_SPECIAL: 
+            self.lambda_t = 0.2
+            self.lambda_s = 0.2
+            f_t = lambda delta_t, user_len: special_t(delta_t, user_len, self.At, self.lambda_t, device)
+            f_s = lambda delta_s, user_len: special_s(delta_s, user_len, self.As, self.lambda_s, device)
+            
         
         self.loc_count = loc_count
         self.cross_entropy_loss = nn.CrossEntropyLoss()
