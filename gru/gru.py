@@ -162,9 +162,73 @@ class STGN(nn.Module):
         
         
 class STGCN(nn.Module):
-    ''' The STGCN Implementation '''
-    # TODO
-    pass
+    ''' The STGCN Variant '''
+    
+    def __init__(self, hidden_size):
+        super(STGCN, self).__init__()
+        self.hidden_size = hidden_size
+        
+        # some initialization
+        self.mu = 0
+        self.sd = 1/(hidden_size**2)
+        
+        # input weights:
+        self.Wi = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Wo = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Wc = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Wt1 = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Wd1 = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Wt2 = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Wd2 = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+
+        # hidden state weights:
+        self.Ui = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Uo = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        self.Uc = nn.Parameter(torch.randn(1, hidden_size, hidden_size)*self.sd + self.mu)
+        
+        # Temporal weights:
+        self.Tt1 = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        self.Tt2 = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        self.To = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        
+        # Spatial weights:
+        self.Dd1 = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        self.Dd2 = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        self.Do = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+
+        # bias terms:
+        self.bi = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        self.bo = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)           
+        self.bc = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        self.bt1 = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        self.bd1 = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        self.bt2 = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        self.bd2 = nn.Parameter(torch.randn(1, hidden_size, 1)*self.sd + self.mu)
+        
+    def forward(self, x, delta_t, delta_s, hc):
+        seq_len, user_len, _ = x.size()
+        h, c = hc
+        out = []
+        h = h[0].unsqueeze(2)
+        c = c[0].unsqueeze(2)
+        for j in range(seq_len):
+            x_t = x[j].view(user_len, self.hidden_size, 1)
+            t_t = delta_t[j].view(user_len, 1, 1)
+            s_t = delta_s[j].view(user_len, 1, 1)
+            i = torch.sigmoid(torch.matmul(self.Wi, x_t) + torch.matmul(self.Ui, h) + self.bi)
+            o = torch.sigmoid(torch.matmul(self.Wo, x_t) + torch.matmul(self.Uo, h) + t_t*self.To + s_t*self.Do + self.bo)
+            c_tilde = torch.tanh(torch.matmul(self.Wc, x_t) + torch.matmul(self.Uc, h) + self.bc)
+            T1 = torch.sigmoid(torch.matmul(self.Wt1, x_t) + torch.sigmoid(t_t*self.Tt1) + self.bt1)
+            D1 = torch.sigmoid(torch.matmul(self.Wd1, x_t) + torch.sigmoid(s_t*self.Dd1) + self.bd1)
+            T2 = torch.sigmoid(torch.matmul(self.Wt2, x_t) + torch.sigmoid(t_t*self.Tt2) + self.bt2)
+            D2 = torch.sigmoid(torch.matmul(self.Wd2, x_t) + torch.sigmoid(s_t*self.Dd2) + self.bd2)
+            itd1 = i*T1*D1
+            c_hat = (1-itd1)*c + itd1*c_tilde
+            c = (1-i)*c + i*T2*D2*c_tilde
+            h = o*torch.tanh(c_hat)
+            out.append(h.squeeze())
+        out = torch.stack(out, dim=0).view(seq_len, user_len, self.hidden_size)
+        return out, (h.view(1, user_len, self.hidden_size), c.view(1, user_len, self.hidden_size))
 
 
 

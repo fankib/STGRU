@@ -59,7 +59,7 @@ class GruFactory():
         if self.gru_type == GRU.STGN:
             return 'Use STGN variant.'
         if self.gru_type == GRU.STGCN:
-            return 'Use STGCN variant.'
+            return 'Use STG*C*N variant.'
         
     def create(self, hidden_size):
         if self.gru_type == GRU.PYTORCH_GRU:
@@ -168,8 +168,26 @@ class RNN_cls_user(nn.Module):
         y_linear = self.fc(out_pu)        
         return y_linear, h
 
+class RNN_stgn(nn.Module):
+    ''' STGN based RNN used for bpr, using own weights '''
+    
+    def __init__(self, input_size, hidden_size, gru_factory):
+        super(RNN_stgn, self).__init__()
+        self.input_size = input_size
+        self.hidden_size = hidden_size
+
+        self.encoder = nn.Embedding(input_size, hidden_size)
+        self.gru = gru_factory.create(hidden_size)
+
+    def forward(self, x, delta_t, delta_s, h):
+        seq_len, user_len = x.size()
+        x_emb = self.encoder(x)
+        out, h = self.gru(x_emb, delta_t, delta_s, h)
+        y_linear = self.fc(out) # use own weights!
+        return y_linear, h
+
 class RNN_cls_stgn(nn.Module):
-    ''' STGN based RNN used for cross entropy loss, using embeddings and one linear output layer '''
+    ''' STGN based RNN used for cross entropy loss and one linear output layer '''
     
     def __init__(self, input_size, hidden_size, gru_factory):
         super(RNN_cls_stgn, self).__init__()
