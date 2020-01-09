@@ -223,8 +223,9 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
         else:
             f_s = lambda delta_s, user_len: torch.ones(user_len, device=device)
         
-        self.As.to(device)
-        self.At.to(device)        
+        # move to gpu:
+        self.As = self.As.to(device)
+        self.At = self.At.to(device)        
         #torch.stack([torch.cos(delta_t*2*np.pi/3600),torch.sin(delta_t*2*np.pi/3600)], dim=0]
         
         USE_SPECIAL = True
