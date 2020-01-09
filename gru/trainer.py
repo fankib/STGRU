@@ -179,6 +179,10 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
         self.use_spatial = use_spatial
         self.lambda_t = lambda_t
         self.lambda_s = lambda_s
+        mu = 1.0
+        sd = 0.1
+        self.At = nn.Parameter(torch.randn(1, 1, 6)*sd + mu)
+        self.As = nn.Parameter(torch.randn(1)*sd + mu)
     
     def greeter(self):
         if not self.use_user_embedding:
@@ -219,12 +223,8 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
         else:
             f_s = lambda delta_s, user_len: torch.ones(user_len, device=device)
         
-        mu = 1.0
-        sd = 0.1
-        self.At = nn.Parameter(torch.randn(1, 1, 6)*sd + mu).to(device)
-        self.As = nn.Parameter(torch.randn(1)*sd + mu).to(device)
-        
-        
+        self.As.to(device)
+        self.At.to(device)        
         #torch.stack([torch.cos(delta_t*2*np.pi/3600),torch.sin(delta_t*2*np.pi/3600)], dim=0]
         
         USE_SPECIAL = True
