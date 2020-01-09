@@ -195,8 +195,8 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
             return 'Use Spatial and Temporal Cross Entropy training with user embeddings.'
     
     def debug(self):
-        print('As:', self.As)
-        print('At:', self.At)
+        print('As:', self.As.cpu())
+        print('At:', self.At.cpu())
         pass
     
     def parameters(self):
@@ -217,8 +217,8 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
         
         mu = 1.0
         sd = 0.1
-        self.At = nn.Parameter(torch.randn(1, 6, 1)*sd + mu)
-        self.As = nn.Parameter(torch.randn(1)*sd + mu)
+        self.At = nn.Parameter(torch.randn(1, 6, 1)*sd + mu).to(device)
+        self.As = nn.Parameter(torch.randn(1)*sd + mu).to(device)
         
         
         #torch.stack([torch.cos(delta_t*2*np.pi/3600),torch.sin(delta_t*2*np.pi/3600)], dim=0]
