@@ -217,7 +217,7 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
         
         mu = 1.0
         sd = 0.1
-        self.At = nn.Parameter(torch.randn(1, 6, 1)*sd + mu).to(device)
+        self.At = nn.Parameter(torch.randn(1, 1, 6)*sd + mu).to(device)
         self.As = nn.Parameter(torch.randn(1)*sd + mu).to(device)
         
         
@@ -233,7 +233,7 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
                     torch.cos(delta_t*2*np.pi/604800),\
                     torch.sin(delta_t*2*np.pi/604800),\
                     ], dim=1).unsqueeze(2)
-            weight = torch.sigmoid(torch.matmul(At.transpose(1,2), time_emb)).squeeze()
+            weight = torch.sigmoid(torch.matmul(At, time_emb)).squeeze()
             decay = torch.exp(-(delta_t/86400*lambda_t))
             return weight*decay
         def special_s(delta_s, user_len, As, lambda_s, device):
