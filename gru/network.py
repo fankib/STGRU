@@ -205,6 +205,42 @@ class RNN_cls_stgn(nn.Module):
         y_linear = self.fc(out)
         return y_linear, h
 
+class S_Module(nn.Module):
+    
+    def __init__(self, lambda_s):
+        super(S_Module, self).__init__()
+        self.lambda_s = lambda_s
+        self.As = nn.Parameter(torch.randn(1)*0.2)
+    
+    def forward(self, delta_s, user_len):
+        return torch.sigmoid(self.As*delta_s)*torch.exp(-(delta_s*self.lambda_s))
+
+class T_Module(nn.Module):
+    
+    def __init__(self, lambda_t):
+        super(T_Module, self).__init__()
+        self.lambda_t = lambda_t
+        self.fc = nn.Sequential(
+                nn.Linear(6,6),
+                nn.ReLU(),
+                nn.Linear(6,6)
+                )
+        self.At = nn.Parameter(torch.randn(1, 1, 6)*0.1)
+    
+    def forward(self, delta_t, user_len):
+        time_emb = torch.stack([torch.cos(delta_t*2*np.pi/3600),\
+                    torch.sin(delta_t*2*np.pi/3600),\
+                    torch.cos(delta_t*2*np.pi/86400),\
+                    torch.sin(delta_t*2*np.pi/86400),\
+                    torch.cos(delta_t*2*np.pi/604800),\
+                    torch.sin(delta_t*2*np.pi/604800),\
+                    ], dim=1)
+        time_emb = self.fc(time_emb).unsqueeze(2)
+        weight = torch.sigmoid(torch.matmul(self.At, time_emb)).squeeze()
+        decay = torch.exp(-(delta_t/86400*self.lambda_t))
+        return weight*decay
+    
+
 class RNN_cls_st(nn.Module):
     ''' GRU based rnn. applies weighted average using spatial and temporal data '''
     

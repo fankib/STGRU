@@ -3,7 +3,7 @@ import torch
 from torch import nn
 import numpy as np
 
-from network import RNN, RNN_user, RNN_cls, RNN_cls_user, RNN_cls_st, RNN_cls_st_user, RNN_cls_stgn
+from network import RNN, RNN_user, RNN_cls, RNN_cls_user, RNN_cls_st, RNN_cls_st_user, RNN_cls_stgn, S_Module, T_Module
 
 class TrainerFactory():
     
@@ -179,10 +179,6 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
         self.use_spatial = use_spatial
         self.lambda_t = lambda_t
         self.lambda_s = lambda_s
-        mu = 1.0
-        sd = 0.1
-        self.At = nn.Parameter(torch.randn(1, 1, 6)*sd + mu)
-        self.As = nn.Parameter(torch.randn(1)*sd + mu)
     
     def greeter(self):
         if not self.use_user_embedding:
@@ -199,16 +195,12 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
             return 'Use Spatial and Temporal Cross Entropy training with user embeddings.'
     
     def debug(self):
-        print('As:', self.As.cpu())
-        print('At:', self.At.cpu())
         pass
     
     def parameters(self):
-        #return list(self.model.parameters()) + list([self.a, self.b]) 
-        #return list(self.model.parameters()) + list([self.At, self.As])
-        params = list(self.model.parameters())
-        params.append(self.At)
-        params.append(self.As)
+        params = list(self.model.parameters())\
+            + list(self.t_module.parameters())\
+            + list(self.s_module.parameters())
         return params
         
     
@@ -227,27 +219,13 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
         #torch.stack([torch.cos(delta_t*2*np.pi/3600),torch.sin(delta_t*2*np.pi/3600)], dim=0]
         
         USE_SPECIAL = True
-        def special_t(delta_t, user_len, At, lambda_t, device):
-            # encode time:
-            At = At.to(device)
-            time_emb = torch.stack([torch.cos(delta_t*2*np.pi/3600),\
-                    torch.sin(delta_t*2*np.pi/3600),\
-                    torch.cos(delta_t*2*np.pi/86400),\
-                    torch.sin(delta_t*2*np.pi/86400),\
-                    torch.cos(delta_t*2*np.pi/604800),\
-                    torch.sin(delta_t*2*np.pi/604800),\
-                    ], dim=1).unsqueeze(2)
-            weight = torch.sigmoid(torch.matmul(At, time_emb)).squeeze()
-            decay = torch.exp(-(delta_t/86400*lambda_t))
-            return weight*decay
-        def special_s(delta_s, user_len, As, lambda_s, device):
-            As = As.to(device)
-            return torch.sigmoid(As*delta_s)*torch.exp(-(delta_s*self.lambda_s))
         if USE_SPECIAL: 
             self.lambda_t = 0.2
             self.lambda_s = 0.2
-            f_t = lambda delta_t, user_len: special_t(delta_t, user_len, self.At, self.lambda_t, device)
-            f_s = lambda delta_s, user_len: special_s(delta_s, user_len, self.As, self.lambda_s, device)
+            self.s_module = S_Module(self.lambda_s).to(device)
+            self.t_module = T_Module(self.lambda_t).to(device)
+            f_t = lambda delta_t, user_len: self.t_module(delta_t, user_len)
+            f_s = lambda delta_s, user_len: self.s_module(delta_s, user_len)
             
         
         self.loc_count = loc_count
