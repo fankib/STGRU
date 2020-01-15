@@ -264,6 +264,9 @@ class GowallaLoader():
         dataset = PoiDataset(self.users.copy(), self.times.copy(), self.coords.copy(), self.locs.copy(), seq_length, user_length, split, usage, len(self.poi2id), custom_seq_count) # crop latest in time
         return dataset
     
+    def user_count(self):
+        return len(self.users)
+    
     def locations(self):
         return len(self.poi2id)
     

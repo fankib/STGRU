@@ -54,8 +54,6 @@ use_temporal = args.temporal
 use_spatial = args.spatial
 dataset_file = '../../dataset/{}'.format(args.dataset)
 gru_factory = GruFactory(args.gru)
-#h0_strategy = PersistUserStateStrategy(hidden_size, user_count, FixNoiseStrategy(hidden_size))
-h0_strategy = h_strategy_from_string(args.h0, hidden_size, user_count, gru_factory.is_lstm())
 do_map_only = not args.validate_recall
 do_recall = args.validate_recall
 ########################
@@ -71,11 +69,20 @@ print('{} {}'.format(trainer.greeter(), gru_factory.greeter()))
 
 gowalla = GowallaLoader(user_count, args.min_checkins)
 gowalla.load(dataset_file)
+user_count = gowalla.user_count()
+print('use users:', user_count)
+#DEBUG:
+#dataset = gowalla.poi_dataset(seq_length, user_length, Split.TRAIN, Usage.CUSTOM, 3)
+#dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.CUSTOM, 3)
+
 dataset = gowalla.poi_dataset(seq_length, user_length, Split.TRAIN, Usage.MAX_SEQ_LENGTH)
 dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TEST, Usage.MAX_SEQ_LENGTH)
 #dataset_test = gowalla.poi_dataset(seq_length, user_length, Split.TRAIN, Usage.MIN_SEQ_LENGTH) # DEBUG-ONLY! converge on train
 dataloader = DataLoader(dataset, batch_size = 1, shuffle=False)
 dataloader_test = DataLoader(dataset_test, batch_size = 1, shuffle=False)
+
+#h0_strategy = PersistUserStateStrategy(hidden_size, user_count, FixNoiseStrategy(hidden_size))
+h0_strategy = h_strategy_from_string(args.h0, hidden_size, user_count, gru_factory.is_lstm())
 
 # setup trainer
 trainer.prepare(gowalla.locations(), user_count, hidden_size, gru_factory, device)
@@ -94,11 +101,11 @@ def evaluate_test():
         recall10 = 0
         average_precision = 0.
         
-        u_iter_cnt = np.zeros(args.users)
-        u_recall1 = np.zeros(args.users)
-        u_recall5 = np.zeros(args.users)
-        u_recall10 = np.zeros(args.users)
-        u_average_precision = np.zeros(args.users)        
+        u_iter_cnt = np.zeros(user_count)
+        u_recall1 = np.zeros(user_count)
+        u_recall5 = np.zeros(user_count)
+        u_recall10 = np.zeros(user_count)
+        u_average_precision = np.zeros(user_count)        
         reset_count = torch.zeros(user_count)
         
         for i, (x, t, s, y, y_t, y_s, reset_h, active_users) in enumerate(dataloader_test):
@@ -196,7 +203,7 @@ def evaluate_test():
                         u_average_precision[active_users[j]] += precision
         
         formatter = "{0:.8f}"
-        for j in range(args.users):
+        for j in range(user_count):
             iter_cnt += u_iter_cnt[j]
             recall1 += u_recall1[j]
             recall5 += u_recall5[j]

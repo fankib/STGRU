@@ -155,6 +155,7 @@ class STGNTrainer(Trainer):
         self.model = RNN_cls_stgn(loc_count, hidden_size, gru_factory).to(device)
 
     def evaluate(self, x, t, s, y_t, y_s, h, active_users):
+        #with torch.no_grad():
         delta_t = y_t - t
         delta_s = torch.norm(y_s - s, dim=-1)
         out, h = self.model(x, delta_t, delta_s, h)
