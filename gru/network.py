@@ -219,20 +219,19 @@ class RNN_cls_st(nn.Module):
         self.gru = gru_factory.create(hidden_size)
         self.fc = nn.Linear(hidden_size, input_size) # create outputs in lenght of locations
 
-    def forward(self, x, delta_t, s, y_s, h, active_user):
+    def forward(self, x, t, s, y_t, y_s, h, active_user):
         seq_len, user_len = x.size()
         x_emb = self.encoder(x)
         out, h = self.gru(x_emb, h)
         
         # comopute weights per
         out_w = torch.zeros(seq_len, user_len, self.hidden_size, device=x.device)
-        cummulative_t = torch.zeros(seq_len, user_len, device=x.device)
         for i in range(seq_len):
-            cummulative_t[0:(i+1)] += delta_t[i]
             sum_w = torch.zeros(user_len, 1, device=x.device)
             for j in range(i+1):
-                dist_s = torch.norm(y_s[i] - s[j], dim=-1)
-                a_j = self.f_t(cummulative_t[j], user_len) # (torch.cos(cummulative_t[j]*2*np.pi / 86400) + 1) / 2 #
+                dist_t = t[i] - t[j]
+                dist_s = torch.norm(s[i] - s[j], dim=-1)
+                a_j = self.f_t(dist_t, user_len) # (torch.cos(cummulative_t[j]*2*np.pi / 86400) + 1) / 2 #
                 b_j = self.f_s(dist_s, user_len)
                 a_j = a_j.unsqueeze(1)
                 b_j = b_j.unsqueeze(1)
@@ -261,20 +260,19 @@ class RNN_cls_st_user(nn.Module):
         self.gru = gru_factory.create(hidden_size)
         self.fc = nn.Linear(2*hidden_size, input_size) # create outputs in lenght of locations
 
-    def forward(self, x, delta_t, s, y_s, h, active_user):
+    def forward(self, x, t, s, y_t, y_s, h, active_user):
         seq_len, user_len = x.size()
         x_emb = self.encoder(x)        
         out, h = self.gru(x_emb, h)
         
         # comopute weights per
         out_w = torch.zeros(seq_len, user_len, self.hidden_size, device=x.device)
-        cummulative_t = torch.zeros(seq_len, user_len, device=x.device)
         for i in range(seq_len):
-            cummulative_t[0:(i+1)] += delta_t[i] 
             sum_w = torch.zeros(user_len, 1, device=x.device)
             for j in range(i+1):
-                dist_s = torch.norm(y_s[i] - s[j], dim=-1)
-                a_j = self.f_t(cummulative_t[j], user_len) # (torch.cos(cummulative_t[j]*2*np.pi / 86400) + 1) / 2 #
+                dist_t = t[i] - t[j]
+                dist_s = torch.norm(s[i] - s[j], dim=-1)
+                a_j = self.f_t(dist_t, user_len) # (torch.cos(cummulative_t[j]*2*np.pi / 86400) + 1) / 2 #
                 b_j = self.f_s(dist_s, user_len)
                 a_j = a_j.unsqueeze(1)
                 b_j = b_j.unsqueeze(1)

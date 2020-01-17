@@ -221,14 +221,12 @@ class SpatialTemporalCrossEntropyTrainer(Trainer):
             self.model = RNN_cls_st(loc_count, hidden_size, f_t, f_s, gru_factory).to(device)
     
     def evaluate(self, x, t, s, y_t, y_s, h, active_users):
-        delta_t = y_t - t
-        out, h = self.model(x, delta_t, s, y_s, h, active_users)
+        out, h = self.model(x, t, s, y_t, y_s, h, active_users)
         out_t = out.transpose(0, 1)
         return out_t, h # model output is directly associated with the ranking per location.
     
     def loss(self, x, t, s, y, y_t, y_s, h, active_users):
-        delta_t = y_t - t
-        out, h = self.model(x, delta_t, s, y_s, h, active_users)
+        out, h = self.model(x, t, s, y_t, y_s, h, active_users)
         out = out.view(-1, self.loc_count)
         y = y.view(-1)
         l = self.cross_entropy_loss(out, y)
