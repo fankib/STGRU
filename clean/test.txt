@@ -1,0 +1,4 @@
+# test executions:
+
+python -u train.py --gpu 0 --hidden-dim 10 --rnn rnn --dataset loc-gowalla_totalCheckins_Pcore10_10.txt --learning-rate 0.01 > lr01.txt
+python -u train.py --gpu 1 --hidden-dim 10 --rnn rnn --dataset loc-gowalla_totalCheckins_Pcore10_10.txt --learning-rate 0.001 > lr001.txt
