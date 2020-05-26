@@ -254,21 +254,21 @@ class HyperOptimizer(torch.optim.Optimizer):
                 lambda_grad = torch.tensor(lambda_grads).sum()                
                 
                 #stgru
-                wd_buf.add_(-0.01/inner_iters, self.hyper_momentum(group, 'lambda_grad_momentum', lambda_grad)) # more lineary
+                wd_buf.add_(-0.001/inner_iters, self.hyper_momentum(group, 'lambda_grad_momentum', lambda_grad)) # more lineary
                 logger.adaptive_weight_decay(self.get_wd(group))
             
             if use_lr:
                 lr_buf = group[Buffer.learning_rate]                
                 alpha_grad = torch.tensor(alpha_grads).sum()     
                 # stgru:
-                lr_buf.add_(-0.1/1, self.hyper_momentum(group, 'apha_grad_momentum', alpha_grad))
+                lr_buf.add_(-0.01/1, self.hyper_momentum(group, 'apha_grad_momentum', alpha_grad))
             
             if use_momentum:
                 momentum_buf = group[Buffer.momentum]
                 beta_grad = torch.tensor(beta_grads).sum()                
                 
                 #stgru:
-                momentum_buf.add_(-0.1/1, self.hyper_momentum(group, 'beta_grad_momentum', beta_grad))
+                momentum_buf.add_(-0.01/1, self.hyper_momentum(group, 'beta_grad_momentum', beta_grad))
             
             if use_lr and use_momentum:
                 logger.adaptive_learning_sgd(lr_buf.exp().item(), momentum_buf.sigmoid().item())
