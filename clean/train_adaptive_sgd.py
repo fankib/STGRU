@@ -262,14 +262,14 @@ class HyperOptimizer(torch.optim.Optimizer):
                 alpha_grad = torch.tensor(alpha_grads).sum()     
                 
                 # stgru:
-                lr_buf.add_(-10/1., self.hyper_momentum(group, 'apha_grad_momentum', alpha_grad))
+                lr_buf.add_(-1/1., self.hyper_momentum(group, 'apha_grad_momentum', alpha_grad))
             
             if use_momentum:
                 momentum_buf = group[Buffer.momentum]
                 beta_grad = torch.tensor(beta_grads).sum()                
                 
                 #stgru:
-                momentum_buf.add_(-1/1., self.hyper_momentum(group, 'beta_grad_momentum', beta_grad))
+                momentum_buf.add_(-0.1/1., self.hyper_momentum(group, 'beta_grad_momentum', beta_grad))
             
             if use_lr and use_momentum:
                 logger.adaptive_learning_sgd(lr_buf.exp().item(), momentum_buf.sigmoid().item())
@@ -378,7 +378,7 @@ trainer.prepare(poi_loader.locations(), poi_loader.user_count(), setting.hidden_
 evaluation_test = Evaluation(dataset_test, dataloader_test, poi_loader.user_count(), h0_strategy, trainer, setting)
 
 ###  training loop ###
-optimizer = AdaptiveSGD(trainer.parameters(), lr=setting.learning_rate, hlr=999, momentum=0.8, weight_decay=setting.weight_decay)
+optimizer = AdaptiveSGD(trainer.parameters(), lr=setting.learning_rate, hlr=999, momentum=0.4, weight_decay=setting.weight_decay)
 
 dataset_test.shuffle_users()
 test_iterator = iter(dataloader_test)
