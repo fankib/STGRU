@@ -1,8 +1,7 @@
 # test executions:
-
-#python -u train.py --gpu 0 --hidden-dim 10 --rnn rnn --dataset loc-gowalla_totalCheckins_Pcore10_10.txt --lr 0.01 | tee lr01.txt &
-#python -u train.py --gpu 1 --hidden-dim 10 --rnn rnn --dataset loc-gowalla_totalCheckins_Pcore10_10.txt --lr 0.03 | tee lr03.txt &
+python -u train.py --gpu 0 --hidden-dim 10 --rnn rnn --dataset loc-gowalla_totalCheckins_Pcore10_10.txt --lr 0.01 | tee lr01.txt &
+python -u train.py --gpu 1 --hidden-dim 10 --rnn rnn --dataset loc-gowalla_totalCheckins_Pcore10_10.txt --lr 0.03 | tee lr03.txt &
 
 # adaptive sgd
-python -u train_adaptive_sgd.py --batch-size 150 --gpu 0 --hidden-dim 10 --rnn rnn --dataset loc-gowalla_totalCheckins_Pcore10_10.txt --lr 0.8 --weight_decay=0.00 &
-python -u train_adaptive_sgd.py --batch-size 150 --gpu 1 --hidden-dim 10 --rnn rnn --dataset loc-gowalla_totalCheckins_Pcore10_10.txt --lr 0.5 --weight_decay=0.00 &
+#python -u train_adaptive_sgd.py --batch-size 150 --gpu 0 --hidden-dim 10 --rnn rnn --dataset loc-gowalla_totalCheckins_Pcore10_10.txt --lr 0.8 --weight_decay=0.00 &
+#python -u train_adaptive_sgd.py --batch-size 150 --gpu 1 --hidden-dim 10 --rnn rnn --dataset loc-gowalla_totalCheckins_Pcore10_10.txt --lr 0.5 --weight_decay=0.00 &
