@@ -251,41 +251,24 @@ class HyperOptimizer(torch.optim.Optimizer):
             
             if use_wd:
                 wd_buf = group[Buffer.weight_decay]
-                lambda_grad = torch.tensor(lambda_grads).sum()
-                #wd_buf.add_(-0.1, self.hyper_momentum(group, 'lambda_grad_momentum', lambda_grad*weight_decay))
-                # sgd:
-                #wd_buf.add_(-0.01/inner_iters, self.hyper_momentum(group, 'lambda_grad_momentum', lambda_grad)) # more lineary
-                # resnet-50
-                #wd_buf.add_(-0.01, self.hyper_momentum(group, 'lambda_grad_momentum', lambda_grad)) # more lineary
-                # adam:
-                #wd_buf.add_(-0.0001/5, self.hyper_momentum(group, 'lambda_grad_momentum', lambda_grad)) # more lineary
-                #wd_buf.add_(-0.1*lr, self.hyper_momentum(group, 'lambda_grad_momentum', lambda_grad)) # more lineary
+                lambda_grad = torch.tensor(lambda_grads).sum()                
                 
-                #birds
-                wd_buf.add_(-0.002/inner_iters, self.hyper_momentum(group, 'lambda_grad_momentum', lambda_grad)) # more lineary
+                #stgru
+                wd_buf.add_(-0.2/inner_iters, self.hyper_momentum(group, 'lambda_grad_momentum', lambda_grad)) # more lineary
                 logger.adaptive_weight_decay(self.get_wd(group))
             
             if use_lr:
                 lr_buf = group[Buffer.learning_rate]                
-                alpha_grad = torch.tensor(alpha_grads).sum()            
-                #lr_buf.add_(-0.01, self.hyper_momentum(group, 'apha_grad_momentum', alpha_grad*lr))
-                # sgd:
-                #lr_buf.add_(-0.00005/1, self.hyper_momentum(group, 'apha_grad_momentum', alpha_grad))
-                # resnet-50
-                #lr_buf.add_(-0.00005, self.hyper_momentum(group, 'apha_grad_momentum', alpha_grad))
-                # adam
-                #lr_buf.add_(-0.00005, self.hyper_momentum(group, 'apha_grad_momentum', alpha_grad))
-                
-                # birds:
-                lr_buf.add_(-0.005/1, self.hyper_momentum(group, 'apha_grad_momentum', alpha_grad))
+                alpha_grad = torch.tensor(alpha_grads).sum()     
+                # stgru:
+                lr_buf.add_(-0.1/1, self.hyper_momentum(group, 'apha_grad_momentum', alpha_grad))
             
             if use_momentum:
                 momentum_buf = group[Buffer.momentum]
-                beta_grad = torch.tensor(beta_grads).sum()
-                #momentum_buf.add_(-0.00005/1, self.hyper_momentum(group, 'beta_grad_momentum', beta_grad))
+                beta_grad = torch.tensor(beta_grads).sum()                
                 
-                #birds:
-                momentum_buf.add_(-0.005/1, self.hyper_momentum(group, 'beta_grad_momentum', beta_grad))
+                #stgru:
+                momentum_buf.add_(-0.1/1, self.hyper_momentum(group, 'beta_grad_momentum', beta_grad))
             
             if use_lr and use_momentum:
                 logger.adaptive_learning_sgd(lr_buf.exp().item(), momentum_buf.sigmoid().item())
