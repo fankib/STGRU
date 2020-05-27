@@ -44,3 +44,9 @@ next location prediction task.
 | Flashback (RNN)  | 0.1158  | 0.2754 | 0.3479 | 0.1925 | 0.2496     | 0.5399 | 0.6236 | 0.3805 |
 | Flashback (LSTM) | 0.1024  | 0.2576 | 0.3317 | 0.1778 | 0.2398     | 0.5169 | 0.6014 | 0.3654 |
 | Flashback (GRU)  | 0.0979  | 0.2526 | 0.3267 | 0.1731 | 0.2375     | 0.5154 | 0.6003 | 0.3631 |
+
+## Usage
+
+* put data files under ```../dataset/```
+
+* run ```python train.py [--dataset NAME]```
