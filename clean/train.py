@@ -32,7 +32,7 @@ evaluation_test = Evaluation(dataset_test, dataloader_test, poi_loader.user_coun
 
 ###  training loop ###
 optimizer = torch.optim.Adam(trainer.parameters(), lr=setting.learning_rate, weight_decay=setting.weight_decay)
-scheduler = torch.optim.MultiStepLR(optimizer, milestones=[20,40,60,80], gamma=0.2)
+scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer, milestones=[20,40,60,80], gamma=0.2)
 
 for e in range(setting.epochs):
     h = h0_strategy.on_init(setting.batch_size, setting.device)    
