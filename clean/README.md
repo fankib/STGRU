@@ -1,4 +1,4 @@
-Official code of
+Code repository for
 
 # Location Prediction over Sparse User Mobility Traces using RNNs: Flashback in Hidden States!
 
