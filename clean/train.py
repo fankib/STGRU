@@ -32,6 +32,7 @@ evaluation_test = Evaluation(dataset_test, dataloader_test, poi_loader.user_coun
 
 ###  training loop ###
 optimizer = torch.optim.Adam(trainer.parameters(), lr=setting.learning_rate, weight_decay=setting.weight_decay)
+scheduler = torch.optim.MultiStepLR(optimizer, milestones=[20,40,60,80], gamma=0.2)
 
 for e in range(setting.epochs):
     h = h0_strategy.on_init(setting.batch_size, setting.device)    
@@ -62,12 +63,16 @@ for e in range(setting.epochs):
         loss, h = trainer.loss(x, t, s, y, y_t, y_s, h, active_users)
         loss.backward(retain_graph=True) # backpropagate through time to adjust the weights and find the gradients of the loss function
         losses.append(loss.item())
-        optimizer.step()    
+        optimizer.step()
+    
+    # schedule learning rate:
+    scheduler.step()
     
     # statistics:
     if (e+1) % 1 == 0:
         epoch_loss = np.mean(losses)
         print(f'Epoch: {e+1}/{setting.epochs}')
+        print(f'Used learning rate: {scheduler.get_last_lr()}')
         print(f'Avg Loss: {epoch_loss}')
     if (e+1) % setting.validate_epoch == 0:
         #sample(sample_user_id)
