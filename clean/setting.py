@@ -38,15 +38,11 @@ class Setting:
         parser.add_argument('--rnn', default='rnn', type=str, help='the GRU implementation to use: [rnn|gru|lstm]')        
         
         # data management
-        parser.add_argument('--dataset', default='loc-gowalla_totalCheckins.txt', type=str, help='the dataset under ../../dataset/<dataset.txt> to load')        
-        parser.add_argument('--sequence-length', default=20, type=int, help='amount of locations to process in one pass (batching)')        
-        parser.add_argument('--min-checkins', default=101, type=int, help='amount of checkins required per user')
+        parser.add_argument('--dataset', default='loc-gowalla_totalCheckins_Pcore10_10.txt', type=str, help='the dataset under ../../dataset/<dataset.txt> to load')        
         
-        # evaluation
-        parser.add_argument('--validate-on-latest', default=False, const=True, nargs='?', type=bool, help='use only latest sequence sample to validate')
+        # evaluation        
         parser.add_argument('--validate-epoch', default=5, type=int, help='run validation after this amount of epochs')
-        parser.add_argument('--report-user', default=-1, type=int, help='report every x user on evaluation')
-        parser.add_argument('--skip-recall', default=False, const=True, nargs='?', type=bool, help='skip recall@1,5,10 (only evaluate MAP)')
+        parser.add_argument('--report-user', default=-1, type=int, help='report every x user on evaluation')        
                 
         args = parser.parse_args()
         
@@ -64,17 +60,14 @@ class Setting:
         
         # data management
         self.dataset_file = '../../dataset/{}'.format(args.dataset)
-        self.max_users = 0 # use all available users
-        self.sequence_length = args.sequence_length
+        self.max_users = 0 # 0 = use all available users
+        self.sequence_length = 20
         self.batch_size = args.batch_size
-        self.min_checkins = args.min_checkins
+        self.min_checkins = 101
         
-        # evaluation
-        self.validate_on_latest = args.validate_on_latest
+        # evaluation        
         self.validate_epoch = args.validate_epoch
-        self.report_user = args.report_user
-        self.validate_map_only = args.skip_recall
-        self.validate_recall = not args.skip_recall
+        self.report_user = args.report_user        
      
         ### CUDA Setup ###
         self.device = torch.device('cpu') if args.gpu == -1 else torch.device('cuda', args.gpu)        

@@ -72,9 +72,8 @@ for e in range(setting.epochs):
     if (e+1) % 1 == 0:
         epoch_loss = np.mean(losses)
         print(f'Epoch: {e+1}/{setting.epochs}')
-        print(f'Used learning rate: {scheduler.get_last_lr()}')
+        print(f'Used learning rate: {scheduler.get_lr()}')
         print(f'Avg Loss: {epoch_loss}')
-    if (e+1) % setting.validate_epoch == 0:
-        #sample(sample_user_id)
+    if (e+1) % setting.validate_epoch == 0:        
         print(f'~~~ Test Set Evaluation (Epoch: {e+1}) ~~~')
         evaluation_test.evaluate()

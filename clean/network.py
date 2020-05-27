@@ -19,7 +19,7 @@ class Rnn(Enum):
             return Rnn.GRU
         if name == 'lstm':
             return Rnn.LSTM        
-        raise ValueError('{} not supported'.format(name))        
+        raise ValueError('{} not supported in --rnn'.format(name))        
 
 class RnnFactory():
     ''' Creates the desired RNN unit. '''

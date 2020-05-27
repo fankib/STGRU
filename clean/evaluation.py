@@ -57,63 +57,37 @@ class Evaluation:
                 
                 for j in range(self.setting.batch_size):  
                     # o contains a per user list of votes for all locations for each sequence entry
-                    o = out[j]
+                    o = out[j]                        
+                                        
+                    # partition elements
+                    o_n = o.cpu().detach().numpy()
+                    ind = np.argpartition(o_n, -10, axis=1)[:, -10:] # top 10 elements
+                                       
+                    y_j = y[:, j]
                     
-                    # Only compute MAP is significantly faster as we ommit sorting.                
-                    if (self.setting.validate_map_only):
-                        y_j = y[:, j]
+                    for k in range(len(y_j)):                    
+                        if (reset_count[active_users[j]] > 1):
+                            continue
+                                                                                                            
+                        # resort indices for k:
+                        ind_k = ind[k]
+                        r = ind_k[np.argsort(-o_n[k, ind_k], axis=0)] # sort top 10 elements descending
+                                                    
+                        r = torch.tensor(r)
+                        t = y_j[k]
                         
-                        for k in range(len(y_j)):                    
-                            if (reset_count[active_users[j]] > 1):
-                                continue
-                            
-                            if self.setting.validate_on_latest and (i+1) % self.setting.sequence_length != 0:
-                                continue
-    
-                            r_kj = o[k, :].cpu().numpy()
-    
-                            t = y_j[k]
-                            
-                            t_val = r_kj[t]
-                            upper = np.where(r_kj > t_val)[0]
-                            precision = 1. / (1+len(upper))
-                            u_iter_cnt[active_users[j]] += 1
-                            u_average_precision[active_users[j]] += precision
+                        # compute MAP:
+                        r_kj = o_n[k, :]
+                        t_val = r_kj[t]
+                        upper = np.where(r_kj > t_val)[0]
+                        precision = 1. / (1+len(upper))
                         
-                    
-                    if (self.setting.validate_recall):
-                        # partition elements
-                        o_n = o.cpu().detach().numpy()
-                        ind = np.argpartition(o_n, -10, axis=1)[:, -10:] # top 10 elements
-                                           
-                        y_j = y[:, j]
-                        
-                        for k in range(len(y_j)):                    
-                            if (reset_count[active_users[j]] > 1):
-                                continue
-                            
-                            if self.setting.validate_on_latest and (i+1) % self.setting.sequence_length != 0:
-                                continue
-                                                                                    
-                            # resort indices for k:
-                            ind_k = ind[k]
-                            r = ind_k[np.argsort(-o_n[k, ind_k], axis=0)] # sort top 10 elements descending
-                                                        
-                            r = torch.tensor(r)
-                            t = y_j[k]
-                            
-                            # compute MAP:
-                            r_kj = o_n[k, :]
-                            t_val = r_kj[t]
-                            upper = np.where(r_kj > t_val)[0]
-                            precision = 1. / (1+len(upper))
-                            
-                            # store
-                            u_iter_cnt[active_users[j]] += 1
-                            u_recall1[active_users[j]] += t in r[:1]
-                            u_recall5[active_users[j]] += t in r[:5]
-                            u_recall10[active_users[j]] += t in r[:10]
-                            u_average_precision[active_users[j]] += precision
+                        # store
+                        u_iter_cnt[active_users[j]] += 1
+                        u_recall1[active_users[j]] += t in r[:1]
+                        u_recall5[active_users[j]] += t in r[:5]
+                        u_recall10[active_users[j]] += t in r[:10]
+                        u_average_precision[active_users[j]] += precision
             
             formatter = "{0:.8f}"
             for j in range(self.user_count):
@@ -125,10 +99,9 @@ class Evaluation:
     
                 if (self.setting.report_user > 0 and (j+1) % self.setting.report_user == 0):
                     print('Report user', j, 'preds:', u_iter_cnt[j], 'recall@1', formatter.format(u_recall1[j]/u_iter_cnt[j]), 'MAP', formatter.format(u_average_precision[j]/u_iter_cnt[j]), sep='\t')
-                
-            if (self.setting.validate_recall):
-                print('recall@1:', formatter.format(recall1/iter_cnt))
-                print('recall@5:', formatter.format(recall5/iter_cnt))
-                print('recall@10:', formatter.format(recall10/iter_cnt))
+            
+            print('recall@1:', formatter.format(recall1/iter_cnt))
+            print('recall@5:', formatter.format(recall5/iter_cnt))
+            print('recall@10:', formatter.format(recall10/iter_cnt))
             print('MAP', formatter.format(average_precision/iter_cnt))
             print('predictions:', iter_cnt)

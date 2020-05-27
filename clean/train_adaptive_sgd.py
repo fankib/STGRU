@@ -207,7 +207,42 @@ class HyperOptimizer(torch.optim.Optimizer):
         partial_M_beta.add_(1.0, torch.clone(torch.flatten(momentum - gradient)).detach())
         partial_A_beta.add_(-1., partial_M_beta.detach())
     
-    def hyper_step(self):                       
+    def grad_magnitude(self, prefix=''):
+        
+        for group in self.param_groups:
+            
+            param_count = 0
+            param_magnitude_sq = None         
+            
+            
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                d_p = p.grad.data
+                
+                d_p = torch.flatten(torch.clone(d_p))
+                param_count += d_p.size()[0] 
+                if param_magnitude_sq is None:
+                    param_magnitude_sq = d_p.pow(2)
+                else:
+                    param_magnitude_sq = torch.cat((param_magnitude_sq, d_p.pow(2)))
+            
+            magnitudes = np.sqrt(param_magnitude_sq.numpy())
+            avg_magnitude = np.mean(magnitudes)
+            std_magnitude = np.std(magnitudes)
+            min_magnitude = np.min(magnitudes)
+            max_magnitude = np.max(magnitudes)
+            median_magnitude = np.median(magnitudes)
+            
+            # outliers:
+            z_magnitudes = (magnitudes - avg_magnitude)/std_magnitude
+            outliers = np.where(z_magnitudes > 5)
+            
+            print(prefix, 'Current avg magnitude:', avg_magnitude, 'std', std_magnitude, 'median', median_magnitude, 'min', min_magnitude, 'max', max_magnitude, 'outliers', len(outliers[0]), '/', len(magnitudes))
+    
+    def hyper_step(self):
+
+        self.grad_magnitude('[Energy]')                       
         
         for group in self.param_groups:            
             
@@ -313,6 +348,8 @@ class AdaptiveSGD(HyperOptimizer):
         loss = None
         if closure is not None:
             loss = closure()
+            
+        self.grad_magnitude('[Loss]')                       
 
         for group in self.param_groups:            
             # use tuned wd and lr:            
@@ -323,7 +360,8 @@ class AdaptiveSGD(HyperOptimizer):
             for p in group['params']:
                 if p.grad is None:
                     continue
-                d_p = p.grad.data                
+                d_p = p.grad.data   
+                                
                 
                 param_state = self.state[p]                                
                              
