@@ -3,4 +3,4 @@ Goto <https://drive.google.com/file/d/12BoYMOELLRHOvz5aDPpQ7vT-6rdM4j_l/view?usp
 and download datasets.zip.
 
 ### Extract data
-Extract the two datasets into this folder to ```./data/checkins-gowalla.txt``` and ```./data/checkins-4sq.txt```
+Extract the two datasets into this folder as ```./data/checkins-gowalla.txt``` and ```./data/checkins-4sq.txt```

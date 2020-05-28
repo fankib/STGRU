@@ -47,8 +47,7 @@ class Setting:
         ### CUDA Setup ###
         self.device = torch.device('cpu') if args.gpu == -1 else torch.device('cuda', args.gpu)        
     
-    def parse_arguments(self, parser):
-        ### command line parameters ###
+    def parse_arguments(self, parser):        
         # training
         parser.add_argument('--gpu', default=-1, type=int, help='the gpu to use')        
         parser.add_argument('--hidden-dim', default=10, type=int, help='hidden dimensions to use')
