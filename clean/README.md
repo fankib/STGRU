@@ -47,6 +47,6 @@ next location prediction task.
 
 ## Usage
 
-Download and store dataset files under ```./data/``` (instructions under ./data).
+Download and store dataset files under ```./data/``` (instructions in ```./data/README.md```).
 
 Run ```python train.py [--dataset NAME]```.
