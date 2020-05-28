@@ -9,7 +9,7 @@ from dataset import Split
 from network import create_h0_strategy
 from evaluation import Evaluation
 
-### parse settings and create trainer ###
+### parse settings ###
 setting = Setting()
 setting.parse()
 print(setting)
@@ -25,10 +25,10 @@ assert setting.batch_size < poi_loader.user_count(), 'batch size must be lower t
 
 ### create flashback trainer ###
 trainer = FlashbackTrainer(setting.lambda_t, setting.lambda_s)
-print('{} {}'.format(trainer, setting.rnn_factory))
 h0_strategy = create_h0_strategy(setting.hidden_dim, setting.is_lstm)
 trainer.prepare(poi_loader.locations(), poi_loader.user_count(), setting.hidden_dim, setting.rnn_factory, setting.device)
 evaluation_test = Evaluation(dataset_test, dataloader_test, poi_loader.user_count(), h0_strategy, trainer, setting)
+print('{} {}'.format(trainer, setting.rnn_factory))
 
 ###  training loop ###
 optimizer = torch.optim.Adam(trainer.parameters(), lr=setting.learning_rate, weight_decay=setting.weight_decay)
@@ -61,7 +61,7 @@ for e in range(setting.epochs):
         
         optimizer.zero_grad()
         loss, h = trainer.loss(x, t, s, y, y_t, y_s, h, active_users)
-        loss.backward(retain_graph=True) # backpropagate through time to adjust the weights and find the gradients of the loss function
+        loss.backward(retain_graph=True)
         losses.append(loss.item())
         optimizer.step()
     
