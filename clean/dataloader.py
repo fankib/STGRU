@@ -1,19 +1,22 @@
+import os.path
+import sys
+
 from datetime import datetime
 
 from dataset import PoiDataset, Usage
 
 class PoiDataloader():
-    ''' Creates datasets from our prepared Gowalla/Foursquare data.
+    ''' Creates datasets from our prepared Gowalla/Foursquare data files.
     The file consist of one check-in per line in the following format (tab separated):    
     
     <user-id> <timestamp> <latitude> <longitude> <location-id> 
     
-    Check-ins for the same user should be on continous lines.
+    Check-ins for the same user have to be on continous lines.
     Ids for users and locations are recreated and continous from 0.
     '''
     
-    def __init__(self, max_users = 0, min_checkins = 0):
-        ''' max_users might limit the amount of users to load.
+    def __init__(self, max_users=0, min_checkins=0):
+        ''' max_users limits the amount of users to load.
         min_checkins discards users with less than this amount of checkins.               
         '''
         
@@ -48,13 +51,17 @@ class PoiDataloader():
         return len(self.poi2id)
     
     def read(self, file):
+        if not os.path.isfile(file):
+            print('[Error]: Dataset not available: {}. Please follow instructions under ./data/README.md'.format(file))
+            sys.exit(1)
+
         # collect all users with min checkins:
         self.read_users(file)
         # collect checkins for all collected users:
         self.read_pois(file)
     
-    def read_users(self, file):
-        f = open(file, 'r')
+    def read_users(self, file):        
+        f = open(file, 'r')            
         lines = f.readlines()
     
         prev_user = int(lines[0].split('\t')[0])

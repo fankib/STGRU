@@ -59,12 +59,12 @@ class Flashback(nn.Module):
         self.f_t = f_t # function for computing temporal weight
         self.f_s = f_s # function for computing spatial weight
 
-        self.encoder = nn.Embedding(input_size, hidden_size)
-        self.user_encoder = nn.Embedding(user_count, hidden_size)
+        self.encoder = nn.Embedding(input_size, hidden_size) # location embedding
+        self.user_encoder = nn.Embedding(user_count, hidden_size) # user embedding
         self.rnn = rnn_factory.create(hidden_size)
         self.fc = nn.Linear(2*hidden_size, input_size) # create outputs in lenght of locations
 
-    def forward(self, x, t, s, y_t, y_s, h, active_user):
+    def forward(self, x, t, s, y_t, y_s, h, active_user):        
         seq_len, user_len = x.size()
         x_emb = self.encoder(x)        
         out, h = self.rnn(x_emb, h)
@@ -80,7 +80,7 @@ class Flashback(nn.Module):
                 b_j = self.f_s(dist_s, user_len)
                 a_j = a_j.unsqueeze(1)
                 b_j = b_j.unsqueeze(1)
-                w_j = a_j*b_j + 1e-10 # small epsilon to have no 0 division
+                w_j = a_j*b_j + 1e-10 # small epsilon to avoid 0 division
                 sum_w += w_j
                 out_w[i] += w_j*out[j]
             # normliaze according to weights
@@ -95,7 +95,10 @@ class Flashback(nn.Module):
         y_linear = self.fc(out_pu)
         return y_linear, h
 
-''' ~~~ h_0 strategies ~~~ '''
+'''
+~~~ h_0 strategies ~~~
+Initialize RNNs hidden states
+'''
 
 def create_h0_strategy(hidden_size, is_lstm):
     if is_lstm:        

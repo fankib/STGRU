@@ -4,6 +4,20 @@ import numpy as np
 
 class Evaluation:
     
+    '''
+    Handles evaluation on a given POI dataset and loader.
+    
+    The two metrics are MAP and recall@n. Our model predicts sequencse of
+    next locations determined by the sequence_length at one pass. During evaluation we
+    treat each entry of the sequence as single prediction. One such prediction
+    is the ranked list of all available locations and we can compute the two metrics.
+    
+    As a single prediction is of the size of all available locations,
+    evaluation takes its time to compute. The code here is optimized.
+    
+    Using the --report_user argument one can access the statistics per user.
+    '''
+    
     def __init__(self, dataset, dataloader, user_count, h0_strategy, trainer, setting):
         self.dataset = dataset
         self.dataloader = dataloader
@@ -67,7 +81,7 @@ class Evaluation:
                     
                     for k in range(len(y_j)):                    
                         if (reset_count[active_users[j]] > 1):
-                            continue
+                            continue # skip already evaluated users.
                                                                                                             
                         # resort indices for k:
                         ind_k = ind[k]

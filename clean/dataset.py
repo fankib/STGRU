@@ -4,19 +4,21 @@ import torch
 from torch.utils.data import Dataset
 
 class Split(Enum):
+    ''' Defines whether to split for train or test.
+    '''
     TRAIN = 0
-    TEST = 2
-    USE_ALL = 3
+    TEST = 1    
 
 class Usage(Enum):
     '''
     Each user has a different amount of sequences. The usage defines
     how many sequences are used:
+    
     MAX: each sequence of any user is used (default)
     MIN: only as many as the minimal user has
     CUSTOM: up to a fixed amount if available.
     
-    The unused sequences are discarded. This setting applies after the trainint/test split.
+    The unused sequences are discarded. This setting applies after the train/test split.
     '''
     
     MIN_SEQ_LENGTH = 0
@@ -28,15 +30,20 @@ class PoiDataset(Dataset):
     
     '''
     Our Point-of-interest pytorch dataset: To maximize GPU workload we organize the data in batches of
-    user x (location sequence, timestamps, coordinates). As different users have different amount
-    of sequences we keep track of the so called active users (which have at least one sequence in the batch).
-    If a user runs out of sequences we replace him with the next user in the list.
+    "user" x "a fixed length sequence of locations". The active users have at least one sequence in the batch.
+    In order to fill the batch all the time we wrap around the available users: if an active user
+    runs out of locations we replace him with a new one. When there are no unused users available
+    we reuse already processed ones. This happens if a single user was way more active than the average user.
+    The batch guarantees that each sequence of each user was processed at least once.
     
-    To further improve efficiency and tighten the data blocks we remove the checkins after the last fully filled
-    sequence (determined by sequence length). We work with a 80/20 training test spilt, where test check-ins are
-    strictly after training check-ins. To obtain at least one test sequence with label we require any user to have at least
-    (5*<sequence-length>+1) checkins in total.
+    This data management has the implication that some sequences might be processed twice (or more) per epoch.
+    During trainig you should call PoiDataset::shuffle_users before the start of a new epoch. This
+    leads to more stochastic as different sequences will be processed twice.
+    During testing you *have to* keep track of the already processed users.    
     
+    Working with a fixed sequence length omits awkward code by removing only few of the latest checkins per user.
+    We work with a 80/20 train/test spilt, where test check-ins are strictly after training checkins.
+    To obtain at least one test sequence with label we require any user to have at least (5*<sequence-length>+1) checkins in total.    
     '''
     
     def reset(self):
@@ -122,9 +129,7 @@ class PoiDataset(Dataset):
                 self.locs[i] = loc[train_thr:]
                 self.labels[i] = label[train_thr:]
                 self.lbl_times[i] = lbl_time[train_thr:]
-                self.lbl_coords[i] = lbl_coord[train_thr:]
-            if (split == Split.USE_ALL):
-                pass # do nothing
+                self.lbl_coords[i] = lbl_coord[train_thr:]            
             
         # split location and labels to sequences:
         self.max_seq_count = 0
@@ -172,7 +177,7 @@ class PoiDataset(Dataset):
         return self.sequences[idx]
     
     def __len__(self):
-        ''' Amount of available batches.      
+        ''' Amount of available batches to process each sequence at least once.      
         '''
         
         if (self.usage == Usage.MIN_SEQ_LENGTH):
@@ -196,8 +201,8 @@ class PoiDataset(Dataset):
         y is the target location and y_t, y_s the targets timestamp and coordiantes. Provided for
         possible use.
         
-        Reset_h is a flag which indicates when a new user has been added to the batch. The code
-        sould then reset the hidden state a this position as the new user replaces the previous one.
+        reset_h is a flag which indicates when a new user has been replacing a previous user in the
+        batch. You should reset this users hidden state to initial value h_0.
         '''
         
         seqs = []

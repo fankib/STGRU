@@ -9,6 +9,10 @@ from dataset import Split
 from network import create_h0_strategy
 from evaluation import Evaluation
 
+'''
+Main train script to invoke from commandline.
+'''
+
 ### parse settings ###
 setting = Setting()
 setting.parse()
@@ -72,7 +76,7 @@ for e in range(setting.epochs):
     if (e+1) % 1 == 0:
         epoch_loss = np.mean(losses)
         print(f'Epoch: {e+1}/{setting.epochs}')
-        print(f'Used learning rate: {scheduler.get_lr()}')
+        print(f'Used learning rate: {scheduler.get_lr()[0]}')
         print(f'Avg Loss: {epoch_loss}')
     if (e+1) % setting.validate_epoch == 0:        
         print(f'~~~ Test Set Evaluation (Epoch: {e+1}) ~~~')
