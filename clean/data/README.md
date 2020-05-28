@@ -1,5 +1,3 @@
-## Prepare data
-
 ### Get our datasets
 Goto <https://drive.google.com/file/d/12BoYMOELLRHOvz5aDPpQ7vT-6rdM4j_l/view?usp=sharing>
 and download datasets.zip.

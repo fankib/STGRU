@@ -47,6 +47,6 @@ next location prediction task.
 
 ## Usage
 
-put data files under ```../dataset/```
+Download and store dataset files under ```./data/```.
 
-run ```python train.py [--dataset NAME]```
+Run ```python train.py [--dataset NAME]```.

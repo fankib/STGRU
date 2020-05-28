@@ -38,7 +38,7 @@ class Setting:
         parser.add_argument('--rnn', default='rnn', type=str, help='the GRU implementation to use: [rnn|gru|lstm]')        
         
         # data management
-        parser.add_argument('--dataset', default='loc-gowalla_totalCheckins_Pcore10_10.txt', type=str, help='the dataset under ../../dataset/<dataset.txt> to load')        
+        parser.add_argument('--dataset', default='checkins-gowalla.txt', type=str, help='the dataset under ./data/<dataset.txt> to load')        
         
         # evaluation        
         parser.add_argument('--validate-epoch', default=5, type=int, help='run validation after this amount of epochs')
@@ -59,7 +59,7 @@ class Setting:
         self.lambda_s = args.lambda_s
         
         # data management
-        self.dataset_file = '../../dataset/{}'.format(args.dataset)
+        self.dataset_file = './data/{}'.format(args.dataset)
         self.max_users = 0 # 0 = use all available users
         self.sequence_length = 20
         self.batch_size = args.batch_size
