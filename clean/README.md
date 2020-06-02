@@ -52,6 +52,6 @@ Download and store dataset files under ```./data/``` (instructions in ```./data/
 Run ```python train.py [--dataset NAME]```.
 
 ## Cite
-If you find this code useful, consider to cite our paper <ijcai20.pdf>:
+If you find this code useful, consider to cite our paper <./ijcai20.pdf>:
 
 Dingqi Yang , Benjamin Fankhauser, Paolo Rosso, and Philippe Cudre-Mauroux, Location Prediction over Sparse User Mobility Traces using RNNs: Flashback in Hidden States! In Proc. of the International Joint Conference on Artificial Intelligence (IJCAI'20). July 2020, Japan.
